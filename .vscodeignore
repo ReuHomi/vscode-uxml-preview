@@ -1,0 +1,11 @@
+.github/**
+src/**
+webview/**
+test/**
+scripts/**
+node_modules/**
+tsconfig.json
+esbuild.mjs
+AGENTS.md
+CLAUDE.md
+**/*.map

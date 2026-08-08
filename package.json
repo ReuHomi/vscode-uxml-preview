@@ -1,0 +1,69 @@
+{
+  "name": "vscode-uxml-preview",
+  "displayName": "UXML Preview for Unity UI Toolkit",
+  "description": "Render Unity UI Toolkit UXML/USS inside VS Code, without opening the Unity Editor.",
+  "version": "0.0.1",
+  "publisher": "reuhomi",
+  "license": "Apache-2.0",
+  "repository": { "type": "git", "url": "https://github.com/ReuHomi/vscode-uxml-preview.git" },
+  "engines": { "vscode": "^1.90.0" },
+  "categories": ["Visualization"],
+  "keywords": ["uxml", "uss", "unity", "ui-toolkit", "preview"],
+  "main": "./dist/extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "commands": [
+      { "command": "uxmlPreview.showPreview", "title": "UXML Preview: Open Preview", "icon": "$(open-preview)" },
+      { "command": "uxmlPreview.showPreviewToSide", "title": "UXML Preview: Open Preview to the Side", "icon": "$(open-preview)" }
+    ],
+    "menus": {
+      "editor/title": [
+        { "command": "uxmlPreview.showPreviewToSide", "when": "resourceExtname == .uxml", "group": "navigation" }
+      ]
+    },
+    "configuration": {
+      "title": "UXML Preview",
+      "properties": {
+        "uxmlPreview.canvas.width": {
+          "type": "number", "default": 1920, "minimum": 1,
+          "description": "Root element width in pixels. A fixed number by default: a canvas that follows the panel size makes the same file lay out differently for different people."
+        },
+        "uxmlPreview.canvas.height": {
+          "type": "number", "default": 1080, "minimum": 1,
+          "description": "Root element height in pixels."
+        },
+        "uxmlPreview.canvas.fitToPanel": {
+          "type": "boolean", "default": false,
+          "description": "Follow the preview panel size instead of the fixed width/height. Off by default on purpose — layouts with little slack flip on a few pixels of difference."
+        },
+        "uxmlPreview.projectRoot": {
+          "type": "string", "default": "",
+          "description": "Unity project root used to resolve project:// paths and GUID references. Empty means the workspace folder containing the file."
+        },
+        "uxmlPreview.states": {
+          "type": "object", "default": {},
+          "description": "Pseudo-class states keyed by USS selector, e.g. { \"#SubmitButton\": [\"hover\"] }. No UI in this version — see AGENTS.md, ponytail exception 1."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check:self-reference": "node scripts/check-self-reference.mjs",
+    "check:rules": "node scripts/check-rule-files.mjs",
+    "verify": "npm run check:self-reference && npm run check:rules && npm run typecheck && npm run test"
+  },
+  "dependencies": {
+    "uxml-preview": "^0.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.90.0",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
