@@ -1,0 +1,7 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="07-moved-asset.uss" />
+    <ui:VisualElement class="card">
+        <ui:Label text="Moved asset: a cyan/orange checkerboard should appear below." />
+        <ui:VisualElement class="asset" />
+    </ui:VisualElement>
+</ui:UXML>

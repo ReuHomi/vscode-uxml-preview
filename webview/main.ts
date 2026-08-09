@@ -4,7 +4,7 @@
  */
 import { loadLayoutEngine, parse, render } from 'uxml-preview';
 import type { RenderResult, SourceRef, UxmlDocument, Warning } from 'uxml-preview';
-import type { HostMessage } from '../src/preview/protocol';
+import type { AssetDiagnostic, HostMessage } from '../src/preview/protocol';
 import {
   diagnosticGroups,
   warningLines,
@@ -29,7 +29,7 @@ function warningLocation(at: SourceRef, documentModel: UxmlDocument): string {
 }
 
 function diagnosticItem(
-  line: WarningLine | DivergenceLine,
+  line: WarningLine | DivergenceLine | AssetDiagnostic,
   projectRoot: string,
   documentModel: UxmlDocument | undefined,
 ): HTMLLIElement {
@@ -43,7 +43,7 @@ function diagnosticItem(
       context = projectRoot === ''
         ? 'host: uxmlPreview.projectRoot is empty. Set it in Settings to the Unity project root.'
         : `host: uxmlPreview.projectRoot = ${projectRoot}`;
-    } else if (line.kind === 'malformed' && line.at !== undefined && documentModel !== undefined) {
+    } else if (line.kind === 'malformed' && 'at' in line && line.at !== undefined && documentModel !== undefined) {
       context = `host: ${warningLocation(line.at, documentModel)}`;
     }
     if (context !== undefined) {
@@ -59,11 +59,12 @@ function diagnosticItem(
 function showDiagnostics(
   lines: readonly WarningLine[],
   projectRoot: string,
+  assetDiagnostics: readonly AssetDiagnostic[] = [],
   documentModel?: UxmlDocument,
   failure?: string,
 ): void {
-  const groups = diagnosticGroups(lines);
-  const issueCount = lines.length + (failure === undefined ? 0 : 1);
+  const groups = diagnosticGroups(lines, assetDiagnostics);
+  const issueCount = lines.length + assetDiagnostics.length + (failure === undefined ? 0 : 1);
   const outer = document.createElement('details');
   outer.open = issueCount > 0;
   const summary = document.createElement('summary');
@@ -164,6 +165,7 @@ async function renderMessage(msg: HostMessage): Promise<void> {
   showDiagnostics(
     warningLines(documentModel.warnings, result.warnings, msg.unresolvedImports),
     msg.projectRoot,
+    msg.assetDiagnostics,
     documentModel,
   );
 
@@ -178,13 +180,13 @@ window.addEventListener('message', (event: MessageEvent<HostMessage>) => {
   const msg = event.data;
   if (msg.type === 'render-error') {
     clearRender();
-    showDiagnostics([], '', undefined, msg.message);
+    showDiagnostics([], '', [], undefined, msg.message);
     return;
   }
   void renderMessage(msg).catch((error: unknown) => {
     console.error(error);
     clearRender();
-    showDiagnostics([], '', undefined, error instanceof Error ? error.message : String(error));
+    showDiagnostics([], '', [], undefined, error instanceof Error ? error.message : String(error));
   });
 });
 

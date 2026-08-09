@@ -5,7 +5,7 @@
 import os from 'node:os';
 import path from 'node:path';
 import * as vscode from 'vscode';
-import { resolveAssetRoundTrip, type ResolvedAsset } from './assets';
+import { resolveAssetRoundTrip, type GuidIndexCache, type ResolvedAsset } from './assets';
 import { collectImports, readStylesheet, resolveStylesheetPath, watchTargets } from './imports';
 import { contentSecurityPolicy, nonce } from './csp';
 import type { RenderFailure, RenderRequest, WebviewMessage } from './protocol';
@@ -21,6 +21,9 @@ export class PreviewPanel implements vscode.Disposable {
   private readonly watchDisposables: vscode.Disposable[] = [];
   private readonly dist: vscode.Uri;
   private readonly key: string;
+  // Panel-owned: reuse one in-memory scan and discard it when this panel dies.
+  private readonly guidIndexCache: GuidIndexCache = {};
+  private assetRoots: readonly string[] = [];
   private lastRequest: RenderRequest | undefined;
   private refreshTimer: ReturnType<typeof setTimeout> | undefined;
   private disposed = false;
@@ -136,8 +139,12 @@ export class PreviewPanel implements vscode.Disposable {
   }
 
   private onMessage(message: WebviewMessage): void {
-    if (message.type === 'ready') this.runRender();
-    else this.runAssetRoundTrip(message.paths);
+    if (message.type !== 'ready') {
+      this.runAssetRoundTrip(message.paths);
+      return;
+    }
+    if (this.lastRequest === undefined) this.runRender();
+    else void this.panel.webview.postMessage(this.lastRequest);
   }
 
   private runRender(): void {
@@ -159,6 +166,11 @@ export class PreviewPanel implements vscode.Disposable {
   }
 
   private setAssetRoots(resourceRoots: readonly string[]): void {
+    if (
+      this.assetRoots.length === resourceRoots.length
+      && this.assetRoots.every((root, index) => root === resourceRoots[index])
+    ) return;
+    this.assetRoots = [...resourceRoots];
     this.panel.webview.options = {
       ...this.panel.webview.options,
       // vscode: asWebviewUri needs these roots; expose only folders of files that resolved.
@@ -166,16 +178,19 @@ export class PreviewPanel implements vscode.Disposable {
     };
   }
 
-  private async resolveAsset(assetPath: string): Promise<ResolvedAsset | null> {
-    const config = vscode.workspace.getConfiguration('uxmlPreview', this.uri);
+  private async resolveAsset(assetPath: string, projectRoot: string): Promise<ResolvedAsset | null> {
     const filePath = resolveStylesheetPath(
       assetPath,
       this.uri.fsPath,
-      config.get<string>('projectRoot', ''),
+      projectRoot,
       vscode.workspace.getWorkspaceFolder(this.uri)?.uri.fsPath,
     );
     if (filePath === null) return null;
 
+    return this.resolveAssetFile(filePath);
+  }
+
+  private async resolveAssetFile(filePath: string): Promise<ResolvedAsset | null> {
     const directory = path.dirname(filePath);
     if (directory === path.parse(directory).root || path.resolve(directory) === path.resolve(os.homedir())) return null;
 
@@ -195,11 +210,17 @@ export class PreviewPanel implements vscode.Disposable {
 
     const claimed = { ...request, assetsResolved: true };
     this.lastRequest = claimed;
-    const result = await resolveAssetRoundTrip(request, paths, (assetPath) => this.resolveAsset(assetPath));
+    const result = await resolveAssetRoundTrip(request, paths, {
+      cache: this.guidIndexCache,
+      projectRoot: request.projectRoot,
+      resolvePath: (assetPath) => this.resolveAsset(assetPath, request.projectRoot),
+      resolveIndexedPath: (filePath) => this.resolveAssetFile(filePath),
+    });
     if (result === null || this.disposed || this.lastRequest !== claimed) return;
 
-    this.setAssetRoots(result.resourceRoots);
     this.lastRequest = result.request;
+    // Updating localResourceRoots reloads the webview; ready must replay this completed request.
+    this.setAssetRoots(result.resourceRoots);
     await this.panel.webview.postMessage(result.request);
   }
 
@@ -302,6 +323,7 @@ export async function buildRenderRequest(
       imports: Object.fromEntries(imports.resolved),
       unresolvedImports: imports.unresolved,
       projectRoot,
+      assetDiagnostics: [],
       assets: {},
       assetsResolved: false,
       canvas,

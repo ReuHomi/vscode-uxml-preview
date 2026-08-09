@@ -1,0 +1,14 @@
+.card {
+    width: 240px;
+    padding: 16px;
+    background-color: #20242b;
+    color: #ffffff;
+}
+
+.asset {
+    width: 192px;
+    height: 192px;
+    margin-top: 12px;
+    background-image: url("project://database/Assets/UI/icon.png?fileID=2800000&guid=0123456789abcdef0123456789abcdef");
+    -unity-background-scale-mode: scale-to-fit;
+}

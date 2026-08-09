@@ -2,7 +2,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { liveNodeCount, type RenderResult, type Warning } from 'uxml-preview';
-import type { AssetMisses, RenderRequest } from '../src/preview/protocol';
+import type { AssetDiagnostic, AssetMisses, RenderRequest } from '../src/preview/protocol';
 import { warningLines } from '../webview/warnings';
 
 const postedMessages: unknown[] = [];
@@ -27,6 +27,7 @@ function request(
   imports: Record<string, string> = {},
   assets: Record<string, string> = {},
   projectRoot = '',
+  assetDiagnostics: readonly AssetDiagnostic[] = [],
 ): RenderRequest {
   return {
     type: 'render',
@@ -35,6 +36,7 @@ function request(
     imports,
     unresolvedImports: [],
     projectRoot,
+    assetDiagnostics,
     assets,
     assetsResolved: false,
     canvas: { width: 1920, height: 1080 },
@@ -214,6 +216,23 @@ describe('webview render messages', () => {
     await vi.waitFor(() => {
       const action = document.querySelector<HTMLElement>('#warnings [data-group="A"]')!;
       expect(action.textContent).toContain(`uxmlPreview.projectRoot = ${projectRoot}`);
+    });
+  });
+
+  it('shows a successful GUID fallback as a fixable host diagnostic', async () => {
+    const message = 'The UXML/USS path is stale: written -> actual';
+    window.dispatchEvent(new MessageEvent('message', { data: request(
+      '<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Label text="resolved" /></ui:UXML>',
+      {},
+      {},
+      'C:\\Unity\\Project',
+      [{ source: 'host', kind: 'asset-path-stale', message }],
+    ) }));
+
+    await vi.waitFor(() => {
+      const action = document.querySelector<HTMLElement>('#warnings [data-group="A"]')!;
+      expect(action.textContent).toContain('host [asset-path-stale]');
+      expect(action.textContent).toContain(message);
     });
   });
 

@@ -6,6 +6,7 @@ import {
   type Warning,
   type WarningKind,
 } from 'uxml-preview';
+import type { AssetDiagnostic } from '../src/preview/protocol';
 
 export interface WarningLine {
   readonly source: 'parse' | 'render' | 'host';
@@ -23,7 +24,7 @@ export interface DivergenceLine {
 }
 
 export interface DiagnosticGroups {
-  readonly A: WarningLine[];
+  readonly A: Array<WarningLine | AssetDiagnostic>;
   readonly B: WarningLine[];
   readonly C: Array<WarningLine | DivergenceLine>;
 }
@@ -56,9 +57,10 @@ export function diagnosticGroup(kind: WarningKind): keyof DiagnosticGroups {
  */
 export function diagnosticGroups(
   lines: readonly WarningLine[],
+  assetDiagnostics: readonly AssetDiagnostic[] = [],
   divergences: readonly KnownDivergence[] = KNOWN_DIVERGENCES,
 ): DiagnosticGroups {
-  const groups: DiagnosticGroups = { A: [], B: [], C: [] };
+  const groups: DiagnosticGroups = { A: [...assetDiagnostics], B: [], C: [] };
   for (const line of lines) groups[diagnosticGroup(line.kind)].push(line);
   groups.C.push(...divergences.map(({ kind, summary, detail }) => ({
     source: 'known-divergence' as const,

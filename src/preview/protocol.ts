@@ -15,6 +15,8 @@ export interface RenderRequest {
   readonly unresolvedImports: readonly string[];
   /** Current setting value, included so actionable diagnostics can explain resolution. */
   readonly projectRoot: string;
+  /** Host facts discovered while resolving assets; shown in the fixable group. */
+  readonly assetDiagnostics: readonly AssetDiagnostic[];
   /** Asset path to a webview URI resolved after the discovery render. */
   readonly assets: Record<string, string>;
   /** False on discovery render, true after the one permitted asset round trip. */
@@ -34,6 +36,12 @@ export interface RenderRequest {
    * ponytail exception 1. Do not make this optional and do not delete it.
    */
   readonly states: Record<string, readonly string[]>;
+}
+
+export interface AssetDiagnostic {
+  readonly source: 'host';
+  readonly kind: 'guid-index' | 'guid-index-skipped' | 'asset-path-stale' | 'guid-unresolved';
+  readonly message: string;
 }
 
 /** Host to webview: a refresh failed before a render request could be built. */
