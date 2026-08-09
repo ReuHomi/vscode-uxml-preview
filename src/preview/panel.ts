@@ -65,6 +65,10 @@ export class PreviewPanel implements vscode.Disposable {
       overflow: hidden;
       display: grid;
       grid-template-rows: auto minmax(0, 1fr);
+      color: var(--vscode-foreground);
+      background: var(--vscode-editor-background);
+      font-family: var(--vscode-font-family);
+      font-size: var(--vscode-font-size);
     }
     #control-bar {
       display: flex;
@@ -76,10 +80,87 @@ export class PreviewPanel implements vscode.Disposable {
       border-bottom: 1px solid var(--vscode-panel-border);
       z-index: 2;
     }
-    #control-bar fieldset { display: flex; gap: 8px; margin: 0; padding: 0; border: 0; }
-    #control-bar input[type="number"] { width: 6em; }
-    #preview-viewport { min-width: 0; min-height: 0; position: relative; overflow: hidden; }
+    #control-bar .control-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      flex: 0 0 auto;
+    }
+    #control-bar .control-group + .control-group {
+      padding-left: 12px;
+      border-left: 1px solid var(--vscode-panel-border);
+    }
+    #control-bar label { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+    #control-bar input[type="number"] {
+      box-sizing: border-box;
+      width: 5rem;
+      height: 26px;
+      padding: 2px 5px;
+      color: var(--vscode-input-foreground);
+      background: var(--vscode-input-background);
+      border: 1px solid var(--vscode-input-border);
+      appearance: textfield;
+    }
+    #control-bar input[type="number"]::-webkit-inner-spin-button,
+    #control-bar input[type="number"]::-webkit-outer-spin-button { margin: 0; appearance: none; }
+    #control-bar button {
+      padding: 3px 7px;
+      color: var(--vscode-button-secondaryForeground);
+      background: var(--vscode-button-secondaryBackground);
+      border: 1px solid var(--vscode-panel-border);
+      cursor: pointer;
+    }
+    #control-bar button:hover { background: var(--vscode-button-secondaryHoverBackground); }
+    #control-bar button.active {
+      color: var(--vscode-button-foreground);
+      background: var(--vscode-button-background);
+    }
+    #control-bar button.active:hover { background: var(--vscode-button-hoverBackground); }
+    #control-bar input[type="checkbox"] {
+      appearance: none;
+      display: grid;
+      place-content: center;
+      width: 14px;
+      height: 14px;
+      margin: 0;
+      color: var(--vscode-checkbox-foreground);
+      background: var(--vscode-checkbox-background);
+      border: 1px solid var(--vscode-checkbox-border);
+    }
+    #control-bar input[type="checkbox"]::before { content: "✓"; visibility: hidden; }
+    #control-bar input[type="checkbox"]:checked::before { visibility: visible; }
+    #state-controls input:checked + span { color: var(--vscode-textLink-foreground); }
+    #canvas-size { margin-left: auto; padding: 3px 7px; color: var(--vscode-descriptionForeground); white-space: nowrap; }
+    :where(input, button, summary):focus-visible {
+      outline: 1px solid var(--vscode-focusBorder);
+      outline-offset: 2px;
+    }
+    #preview-viewport {
+      min-width: 0;
+      min-height: 0;
+      position: relative;
+      overflow: hidden;
+      background: var(--vscode-input-background);
+    }
     #preview-scroll { position: absolute; inset: 0; overflow: auto; }
+    #preview {
+      background-color: var(--vscode-editor-background);
+      background-image:
+        linear-gradient(45deg, color-mix(in srgb, var(--vscode-panel-border) 25%, var(--vscode-editor-background)) 25%, transparent 25%, transparent 75%, color-mix(in srgb, var(--vscode-panel-border) 25%, var(--vscode-editor-background)) 75%),
+        linear-gradient(45deg, color-mix(in srgb, var(--vscode-panel-border) 25%, var(--vscode-editor-background)) 25%, transparent 25%, transparent 75%, color-mix(in srgb, var(--vscode-panel-border) 25%, var(--vscode-editor-background)) 75%);
+      background-position: 0 0, 16px 16px;
+      background-size: 32px 32px;
+      box-shadow: inset 0 0 0 1px var(--vscode-panel-border);
+    }
+    /* VS Code high-contrast themes need explicit edges, not deliberately low-contrast texture. */
+    body.vscode-high-contrast #preview,
+    body.vscode-high-contrast-light #preview {
+      background-image: none;
+      box-shadow: inset 0 0 0 2px var(--vscode-contrastBorder);
+    }
     #warning-panel {
       position: fixed;
       right: 0;
@@ -87,13 +168,37 @@ export class PreviewPanel implements vscode.Disposable {
       left: 0;
       max-height: 30vh;
       overflow: auto;
+      overflow-x: hidden;
+      color: var(--vscode-foreground);
       background: var(--vscode-editor-background);
       border-top: 1px solid var(--vscode-panel-border);
     }
-    #warnings > details > summary { padding: 6px 10px; }
+    #warning-panel summary {
+      padding: 6px 10px;
+      cursor: pointer;
+      list-style: none;
+      overflow-wrap: anywhere;
+    }
+    #warning-panel summary::-webkit-details-marker { display: none; }
+    #warning-panel summary::before {
+      content: "▸";
+      display: inline-block;
+      width: 1.2em;
+      color: var(--vscode-descriptionForeground);
+    }
+    #warning-panel details[open] > summary::before { content: "▾"; }
     #warnings [data-group] { padding: 0 10px 6px; }
-    #warnings li { margin: 4px 0; }
-    .host-context { color: var(--vscode-descriptionForeground); }
+    #warnings [data-group="A"] > summary { color: var(--vscode-editorWarning-foreground); }
+    #warnings ul { margin: 0; padding-left: 2em; }
+    #warnings li { margin: 4px 0; overflow-wrap: anywhere; }
+    .host-context {
+      margin-top: 3px;
+      padding-left: 8px;
+      color: var(--vscode-descriptionForeground);
+      border-left: 2px solid var(--vscode-panel-border);
+    }
+    .render-error { color: var(--vscode-editorError-foreground); }
+    a { color: var(--vscode-textLink-foreground); }
     .uxml-unsupported-control {
       outline: 2px dashed var(--vscode-editorWarning-foreground);
       outline-offset: -2px;
@@ -111,22 +216,23 @@ export class PreviewPanel implements vscode.Disposable {
 </head>
 <body>
   <header id="control-bar" aria-label="Preview controls">
-    <label>Width <input id="canvas-width" type="number" min="1" step="1"></label>
-    <label>Height <input id="canvas-height" type="number" min="1" step="1"></label>
-    <label><input id="fit-to-panel" type="checkbox"> Fit to panel</label>
-    <fieldset aria-label="Canvas presets">
+    <div id="size-inputs" class="control-group">
+      <label>Width <input id="canvas-width" type="number" min="1" step="1"></label>
+      <label>Height <input id="canvas-height" type="number" min="1" step="1"></label>
+    </div>
+    <fieldset class="control-group" aria-label="Canvas presets">
       <button type="button" data-width="1920" data-height="1080">1920×1080</button>
       <button type="button" data-width="1280" data-height="720">1280×720</button>
       <button type="button" data-width="800" data-height="600">800×600</button>
     </fieldset>
-    <fieldset aria-label="Active pseudo-class states">
-      <label><input name="active-state" type="checkbox" value="hover"> hover</label>
-      <label><input name="active-state" type="checkbox" value="active"> active</label>
-      <label><input name="active-state" type="checkbox" value="focus"> focus</label>
-      <label><input name="active-state" type="checkbox" value="disabled"> disabled</label>
+    <label class="control-group"><input id="fit-to-panel" type="checkbox"> Fit to panel</label>
+    <fieldset id="state-controls" class="control-group" aria-label="Active pseudo-class states">
+      <label><input name="active-state" type="checkbox" value="hover"><span>hover</span></label>
+      <label><input name="active-state" type="checkbox" value="active"><span>active</span></label>
+      <label><input name="active-state" type="checkbox" value="focus"><span>focus</span></label>
+      <label><input name="active-state" type="checkbox" value="disabled"><span>disabled</span></label>
     </fieldset>
     <output id="canvas-size"></output>
-    <output id="active-state-summary"></output>
   </header>
   <div id="preview-viewport"><div id="preview-scroll"><div id="preview"></div></div></div>
   <aside id="warning-panel" aria-label="UXML preview warnings">

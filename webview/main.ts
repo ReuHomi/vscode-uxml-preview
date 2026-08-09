@@ -20,9 +20,9 @@ const warningPanel = document.querySelector<HTMLElement>('#warnings')!;
 const widthInput = document.querySelector<HTMLInputElement>('#canvas-width')!;
 const heightInput = document.querySelector<HTMLInputElement>('#canvas-height')!;
 const fitInput = document.querySelector<HTMLInputElement>('#fit-to-panel')!;
+const presetInputs = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-width][data-height]'));
 const stateInputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="active-state"]'));
 const canvasSize = document.querySelector<HTMLOutputElement>('#canvas-size')!;
-const stateSummary = document.querySelector<HTMLOutputElement>('#active-state-summary')!;
 const layoutEngineReady = loadLayoutEngine();
 let current: RenderResult | undefined;
 let lastRequest: RenderRequest | undefined;
@@ -95,6 +95,7 @@ function showDiagnostics(
     const list = document.createElement('ul');
     if (key === 'A' && failure !== undefined) {
       const item = document.createElement('li');
+      item.className = 'render-error';
       item.textContent = `host [render-error] ${failure}`;
       list.append(item);
     }
@@ -160,8 +161,12 @@ async function renderMessage(msg: HostMessage): Promise<void> {
   heightInput.value = String(canvas.height);
   fitInput.checked = msg.fitToPanel;
   for (const input of stateInputs) input.checked = msg.activeStates.includes(input.value);
+  for (const preset of presetInputs) {
+    const active = Number(preset.dataset.width) === canvas.width && Number(preset.dataset.height) === canvas.height;
+    preset.classList.toggle('active', active);
+    preset.setAttribute('aria-pressed', String(active));
+  }
   canvasSize.textContent = `${canvas.width} × ${canvas.height}`;
-  stateSummary.textContent = msg.activeStates.length === 0 ? 'States: none' : `States: ${msg.activeStates.join(', ')}`;
   warningPanel.replaceChildren();
 
   const assetMisses = new Set<string>();
@@ -197,16 +202,38 @@ function postCanvasSettings(canvas: { width: number; height: number }, fitToPane
   vscode.postMessage({ type: 'canvas-settings', canvas, fitToPanel });
 }
 
+function canvasFromInputs(): { width: number; height: number } {
+  const fallback = lastRequest?.canvas ?? { width: 1, height: 1 };
+  const width = Number(widthInput.value);
+  const height = Number(heightInput.value);
+  const canvas = {
+    width: Number.isFinite(width) ? Math.max(1, Math.trunc(width)) : fallback.width,
+    height: Number.isFinite(height) ? Math.max(1, Math.trunc(height)) : fallback.height,
+  };
+  widthInput.value = String(canvas.width);
+  heightInput.value = String(canvas.height);
+  return canvas;
+}
+
 for (const input of [widthInput, heightInput]) {
-  input.addEventListener('change', () => postCanvasSettings({
-    width: Number(widthInput.value),
-    height: Number(heightInput.value),
-  }, fitInput.checked));
+  input.addEventListener('change', () => postCanvasSettings(canvasFromInputs(), fitInput.checked));
+  input.addEventListener('keydown', (event) => {
+    const direction = event.key === 'ArrowUp' || event.key === 'PageUp'
+      ? 1
+      : event.key === 'ArrowDown' || event.key === 'PageDown' ? -1 : 0;
+    if (direction === 0) return;
+    event.preventDefault();
+    const amount = event.key === 'PageUp' || event.key === 'PageDown' ? 100 : event.shiftKey ? 10 : 1;
+    const value = Number(input.value);
+    input.value = String(Math.max(1, (Number.isFinite(value) ? Math.trunc(value) : 1) + direction * amount));
+    postCanvasSettings(canvasFromInputs(), fitInput.checked);
+  });
+  input.addEventListener('wheel', (event) => event.preventDefault(), { passive: false });
 }
 fitInput.addEventListener('change', () => {
   if (lastRequest !== undefined) postCanvasSettings(lastRequest.canvas, fitInput.checked);
 });
-for (const preset of Array.from(document.querySelectorAll<HTMLButtonElement>('[data-width][data-height]'))) {
+for (const preset of presetInputs) {
   preset.addEventListener('click', () => postCanvasSettings({
     width: Number(preset.dataset.width),
     height: Number(preset.dataset.height),

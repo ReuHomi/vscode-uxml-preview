@@ -139,6 +139,38 @@ describe('PreviewPanel webview reloads', () => {
 });
 
 describe('PreviewPanel controls', () => {
+  it('uses VS Code theme tokens for every chrome color', () => {
+    const html = mocks.webview.html as string;
+    expect(html).toContain('var(--vscode-editor-background)');
+    expect(html).toContain('var(--vscode-foreground)');
+    expect(html).toContain('var(--vscode-input-background)');
+    expect(html).toContain('var(--vscode-button-background)');
+    expect(html).toContain('var(--vscode-checkbox-background)');
+    expect(html).toContain('var(--vscode-editorWarning-foreground)');
+    expect(html).toContain('var(--vscode-editorError-foreground)');
+    expect(html).toContain('var(--vscode-focusBorder)');
+    expect(html).not.toMatch(/#[0-9a-f]{3,8}/i);
+    expect(html).toContain('var(--vscode-button-secondaryBackground)');
+    expect(html).toContain('#state-controls input:checked + span');
+    expect(html).toContain('body.vscode-high-contrast #preview');
+    expect(html).toContain('box-shadow: inset 0 0 0 2px var(--vscode-contrastBorder)');
+    expect(html).not.toContain('id="active-state-summary"');
+  });
+
+  it('keeps keyboard controls in their visual order', () => {
+    const html = mocks.webview.html as string;
+    const controls = [
+      'id="canvas-width"',
+      'data-width="1920"',
+      'id="fit-to-panel"',
+      'value="hover"',
+      'id="canvas-size"',
+    ];
+    expect(controls.map((control) => html.indexOf(control))).toEqual(
+      [...controls].map((control) => html.indexOf(control)).sort((a, b) => a - b),
+    );
+  });
+
   it('re-renders a canvas setting change without reading the document or imports', async () => {
     preview.lastRequest = request;
     mocks.settings = {

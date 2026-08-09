@@ -94,10 +94,12 @@ describe('webview render messages', () => {
         <input id="canvas-height" type="number">
         <input id="fit-to-panel" type="checkbox">
         <button data-width="800" data-height="600"></button>
-        <input name="active-state" type="checkbox" value="hover">
-        <input name="active-state" type="checkbox" value="active">
-        <input name="active-state" type="checkbox" value="focus">
-        <input name="active-state" type="checkbox" value="disabled">
+        <fieldset id="state-controls">
+          <label><input name="active-state" type="checkbox" value="hover"><span>hover</span></label>
+          <label><input name="active-state" type="checkbox" value="active"><span>active</span></label>
+          <label><input name="active-state" type="checkbox" value="focus"><span>focus</span></label>
+          <label><input name="active-state" type="checkbox" value="disabled"><span>disabled</span></label>
+        </fieldset>
         <span id="canvas-size"></span>
         <span id="active-state-summary"></span>
       </div>
@@ -189,7 +191,8 @@ describe('webview render messages', () => {
     window.dispatchEvent(new MessageEvent('message', { data: message }));
 
     await vi.waitFor(() => expect(lastRenderOptions!.activeStates).toEqual(new Set(['hover', 'focus'])));
-    expect(document.querySelector('#active-state-summary')!.textContent).toContain('hover, focus');
+    expect(document.querySelector<HTMLInputElement>('input[value="hover"]')!.checked).toBe(true);
+    expect(document.querySelector<HTMLInputElement>('input[value="focus"]')!.checked).toBe(true);
   });
 
   it('applies hover from 02-styled to the rendered card background', async () => {
@@ -317,6 +320,71 @@ describe('webview render messages', () => {
       canvas: { width: 1280, height: 720 },
       fitToPanel: true,
     }));
+  });
+
+  it('steps a canvas input by one with an arrow key', async () => {
+    const width = document.querySelector<HTMLInputElement>('#canvas-width')!;
+    width.value = '800';
+
+    width.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+
+    await vi.waitFor(() => expect(width.value).toBe('801'));
+    expect(postedMessages).toContainEqual({
+      type: 'canvas-settings',
+      canvas: { width: 801, height: Number(document.querySelector<HTMLInputElement>('#canvas-height')!.value) },
+      fitToPanel: document.querySelector<HTMLInputElement>('#fit-to-panel')!.checked,
+    });
+  });
+
+  it('steps a canvas input by ten with shift and by one hundred with page keys', async () => {
+    const width = document.querySelector<HTMLInputElement>('#canvas-width')!;
+    width.value = '800';
+
+    width.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', shiftKey: true, bubbles: true }));
+    expect(width.value).toBe('810');
+    width.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageUp', bubbles: true }));
+
+    await vi.waitFor(() => expect(width.value).toBe('910'));
+  });
+
+  it('keeps keyboard stepping integral and positive', () => {
+    const width = document.querySelector<HTMLInputElement>('#canvas-width')!;
+    width.value = '1.9';
+
+    width.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    expect(width.value).toBe('1');
+    width.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageDown', bubbles: true }));
+    expect(width.value).toBe('1');
+  });
+
+  it('does not change a canvas input with the mouse wheel', () => {
+    const width = document.querySelector<HTMLInputElement>('#canvas-width')!;
+    width.value = '800';
+    const wheel = new WheelEvent('wheel', { cancelable: true });
+
+    width.dispatchEvent(wheel);
+
+    expect(wheel.defaultPrevented).toBe(true);
+    expect(width.value).toBe('800');
+  });
+
+  it('highlights a preset only when both dimensions match', async () => {
+    const preset = document.querySelector<HTMLButtonElement>('[data-width="800"][data-height="600"]')!;
+    window.dispatchEvent(new MessageEvent('message', { data: {
+      ...request('<ui:UXML xmlns:ui="UnityEngine.UIElements" />'),
+      canvas: { width: 800, height: 600 },
+    } satisfies RenderRequest }));
+
+    await vi.waitFor(() => expect(preset.classList).toContain('active'));
+    expect(preset.getAttribute('aria-pressed')).toBe('true');
+
+    window.dispatchEvent(new MessageEvent('message', { data: {
+      ...request('<ui:UXML xmlns:ui="UnityEngine.UIElements" />'),
+      canvas: { width: 800, height: 500 },
+    } satisfies RenderRequest }));
+
+    await vi.waitFor(() => expect(preset.classList).not.toContain('active'));
+    expect(preset.getAttribute('aria-pressed')).toBe('false');
   });
 
   it.each(['hover', 'active', 'focus', 'disabled'])('sends the %s toggle to the host', async (state) => {
