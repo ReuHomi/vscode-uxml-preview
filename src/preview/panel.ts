@@ -12,6 +12,7 @@ import type { RenderFailure, RenderRequest, WebviewMessage } from './protocol';
 
 const decoder = new TextDecoder();
 const SAVE_DEBOUNCE_MS = 75;
+const ACTIVE_STATES = new Set(['hover', 'active', 'focus', 'disabled']);
 
 export class PreviewPanel implements vscode.Disposable {
   static readonly viewType = 'uxmlPreview.panel';
@@ -24,13 +25,14 @@ export class PreviewPanel implements vscode.Disposable {
   // Panel-owned: reuse one in-memory scan and discard it when this panel dies.
   private readonly guidIndexCache: GuidIndexCache = {};
   private assetRoots: readonly string[] = [];
+  private activeStates: readonly string[] = [];
   private lastRequest: RenderRequest | undefined;
   private refreshTimer: ReturnType<typeof setTimeout> | undefined;
   private disposed = false;
 
   /**
-   * Deps/Effects: owns the panel and message subscriptions. `release` disposes
-   *               them, the current file watchers, and the debounce timer.
+   * Deps/Effects: owns the panel, message, and configuration subscriptions.
+   *               `release` disposes them, current watchers, and the timer.
    */
   private constructor(
     private readonly panel: vscode.WebviewPanel,
@@ -42,6 +44,9 @@ export class PreviewPanel implements vscode.Disposable {
     this.disposables.push(
       panel.onDidDispose(() => this.release()),
       panel.webview.onDidReceiveMessage((message: WebviewMessage) => this.onMessage(message)),
+      vscode.workspace.onDidChangeConfiguration((event) => {
+        if (event.affectsConfiguration('uxmlPreview.canvas', this.uri)) this.renderOptions();
+      }),
     );
 
     const token = nonce();
@@ -54,7 +59,27 @@ export class PreviewPanel implements vscode.Disposable {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>UXML Preview</title>
   <style>
-    body { margin: 0; }
+    body {
+      height: 100vh;
+      margin: 0;
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+    #control-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px 12px;
+      padding: 6px 10px;
+      background: var(--vscode-editor-background);
+      border-bottom: 1px solid var(--vscode-panel-border);
+      z-index: 2;
+    }
+    #control-bar fieldset { display: flex; gap: 8px; margin: 0; padding: 0; border: 0; }
+    #control-bar input[type="number"] { width: 6em; }
+    #preview-viewport { min-width: 0; min-height: 0; position: relative; overflow: hidden; }
+    #preview-scroll { position: absolute; inset: 0; overflow: auto; }
     #warning-panel {
       position: fixed;
       right: 0;
@@ -85,7 +110,25 @@ export class PreviewPanel implements vscode.Disposable {
   </style>
 </head>
 <body>
-  <div id="preview"></div>
+  <header id="control-bar" aria-label="Preview controls">
+    <label>Width <input id="canvas-width" type="number" min="1" step="1"></label>
+    <label>Height <input id="canvas-height" type="number" min="1" step="1"></label>
+    <label><input id="fit-to-panel" type="checkbox"> Fit to panel</label>
+    <fieldset aria-label="Canvas presets">
+      <button type="button" data-width="1920" data-height="1080">1920×1080</button>
+      <button type="button" data-width="1280" data-height="720">1280×720</button>
+      <button type="button" data-width="800" data-height="600">800×600</button>
+    </fieldset>
+    <fieldset aria-label="Active pseudo-class states">
+      <label><input name="active-state" type="checkbox" value="hover"> hover</label>
+      <label><input name="active-state" type="checkbox" value="active"> active</label>
+      <label><input name="active-state" type="checkbox" value="focus"> focus</label>
+      <label><input name="active-state" type="checkbox" value="disabled"> disabled</label>
+    </fieldset>
+    <output id="canvas-size"></output>
+    <output id="active-state-summary"></output>
+  </header>
+  <div id="preview-viewport"><div id="preview-scroll"><div id="preview"></div></div></div>
   <aside id="warning-panel" aria-label="UXML preview warnings">
     <div id="warnings"></div>
   </aside>
@@ -139,12 +182,53 @@ export class PreviewPanel implements vscode.Disposable {
   }
 
   private onMessage(message: WebviewMessage): void {
-    if (message.type !== 'ready') {
+    if (message.type === 'asset-misses') {
       this.runAssetRoundTrip(message.paths);
+      return;
+    }
+    if (message.type === 'canvas-settings') {
+      this.runCanvasSettings(message.canvas, message.fitToPanel);
+      return;
+    }
+    if (message.type === 'active-states') {
+      this.activeStates = [...new Set(message.activeStates.filter((state) => ACTIVE_STATES.has(state)))];
+      this.renderOptions();
       return;
     }
     if (this.lastRequest === undefined) this.runRender();
     else void this.panel.webview.postMessage(this.lastRequest);
+  }
+
+  private runCanvasSettings(
+    canvas: { readonly width: number; readonly height: number },
+    fitToPanel: boolean,
+  ): void {
+    if (!Number.isInteger(canvas.width) || canvas.width < 1 || !Number.isInteger(canvas.height) || canvas.height < 1) return;
+    const config = vscode.workspace.getConfiguration('uxmlPreview', this.uri);
+    void Promise.all([
+      config.update('canvas.width', canvas.width, vscode.ConfigurationTarget.Workspace),
+      config.update('canvas.height', canvas.height, vscode.ConfigurationTarget.Workspace),
+      config.update('canvas.fitToPanel', fitToPanel, vscode.ConfigurationTarget.Workspace),
+    ]).catch((error: unknown) => {
+      if (!this.disposed) void vscode.window.showErrorMessage(`UXML Preview: ${error instanceof Error ? error.message : String(error)}`);
+    });
+  }
+
+  private renderOptions(): void {
+    const request = this.lastRequest;
+    if (request === undefined || this.disposed) return;
+    const config = vscode.workspace.getConfiguration('uxmlPreview', this.uri);
+    const next: RenderRequest = {
+      ...request,
+      canvas: {
+        width: config.get<number>('canvas.width', 1920),
+        height: config.get<number>('canvas.height', 1080),
+      },
+      fitToPanel: config.get<boolean>('canvas.fitToPanel', false),
+      activeStates: this.activeStates,
+    };
+    this.lastRequest = next;
+    void this.panel.webview.postMessage(next);
   }
 
   private runRender(): void {
@@ -275,8 +359,10 @@ export class PreviewPanel implements vscode.Disposable {
         {
           width: config.get<number>('canvas.width', 1920),
           height: config.get<number>('canvas.height', 1080),
+          fitToPanel: config.get<boolean>('canvas.fitToPanel', false),
         },
         projectRoot,
+        this.activeStates,
       );
 
       if (this.disposed) return;
@@ -310,8 +396,9 @@ export class PreviewPanel implements vscode.Disposable {
 export async function buildRenderRequest(
   uxml: string,
   read: Parameters<typeof collectImports>[2],
-  canvas: { width: number; height: number },
+  canvas: { width: number; height: number; fitToPanel: boolean },
   projectRoot: string,
+  activeStates: readonly string[] = [],
 ): Promise<{ request: RenderRequest; importPaths: readonly string[] }> {
   const imports = await collectImports(uxml, undefined, read);
   return {
@@ -326,11 +413,14 @@ export async function buildRenderRequest(
       assetDiagnostics: [],
       assets: {},
       assetsResolved: false,
-      canvas,
+      canvas: { width: canvas.width, height: canvas.height },
+      // Fixed is the default: fitting makes the same file cross layout thresholds
+      // at different panel sizes, so the reader must opt into that variability.
+      fitToPanel: canvas.fitToPanel,
       // Empty on purpose, and required so both future UI surfaces stay wired.
       // See AGENTS.md, ponytail exception 1. Step 7 adds active-state toggles;
       // selector-specific state input remains v1.1.
-      activeStates: [],
+      activeStates,
       states: {},
     },
   };

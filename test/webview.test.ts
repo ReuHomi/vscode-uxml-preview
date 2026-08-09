@@ -1,18 +1,24 @@
 // @vitest-environment happy-dom
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { liveNodeCount, type RenderResult, type Warning } from 'uxml-preview';
+import { liveNodeCount, type RenderResult, type UxmlDocument, type Warning } from 'uxml-preview';
 import type { AssetDiagnostic, AssetMisses, RenderRequest } from '../src/preview/protocol';
 import { warningLines } from '../webview/warnings';
 
 const postedMessages: unknown[] = [];
 let lastRender: RenderResult | undefined;
+let lastDocumentModel: UxmlDocument | undefined;
+let lastRenderOptions: Parameters<typeof import('uxml-preview').render>[2];
 
 vi.mock('uxml-preview', async (importOriginal) => {
   const core = await importOriginal<typeof import('uxml-preview')>();
   return {
     ...core,
     render: (...args: Parameters<typeof core.render>) => {
+      lastDocumentModel = args[0];
+      lastRenderOptions = args[2];
       lastRender = core.render(args[0], args[1], {
         ...args[2],
         measureText: () => ({ width: 0, height: 0 }),
@@ -40,6 +46,7 @@ function request(
     assets,
     assetsResolved: false,
     canvas: { width: 1920, height: 1080 },
+    fitToPanel: false,
     activeStates: [],
     states: {},
   };
@@ -49,6 +56,15 @@ function latestAssetMisses(): AssetMisses | undefined {
   return postedMessages.filter((message): message is AssetMisses => (
     typeof message === 'object' && message !== null && 'type' in message && message.type === 'asset-misses'
   )).at(-1);
+}
+
+function rgb(hex: string): string {
+  const value = Number.parseInt(hex.slice(1), 16);
+  return `rgb(${value >> 16}, ${(value >> 8) & 255}, ${value & 255})`;
+}
+
+function rootBox() {
+  return lastRender!.boxes.get(lastDocumentModel!.root.id)!;
 }
 
 describe('warningLines', () => {
@@ -72,7 +88,21 @@ describe('warningLines', () => {
 
 describe('webview render messages', () => {
   beforeAll(async () => {
-    document.body.innerHTML = '<div id="preview"></div><aside id="warning-panel"><div id="warnings"></div></aside>';
+    document.body.innerHTML = `
+      <div id="control-bar">
+        <input id="canvas-width" type="number">
+        <input id="canvas-height" type="number">
+        <input id="fit-to-panel" type="checkbox">
+        <button data-width="800" data-height="600"></button>
+        <input name="active-state" type="checkbox" value="hover">
+        <input name="active-state" type="checkbox" value="active">
+        <input name="active-state" type="checkbox" value="focus">
+        <input name="active-state" type="checkbox" value="disabled">
+        <span id="canvas-size"></span>
+        <span id="active-state-summary"></span>
+      </div>
+      <div id="preview-viewport"><div id="preview-scroll"><div id="preview"></div></div></div>
+      <aside id="warning-panel"><div id="warnings"></div></aside>`;
     Object.defineProperty(globalThis, 'acquireVsCodeApi', {
       configurable: true,
       value: () => ({ postMessage: (message: unknown) => { postedMessages.push(message); } }),
@@ -83,6 +113,7 @@ describe('webview render messages', () => {
   beforeEach(() => {
     postedMessages.length = 0;
     document.querySelector('#warnings')!.replaceChildren();
+    for (const input of Array.from(document.querySelectorAll<HTMLInputElement>('input[name="active-state"]'))) input.checked = false;
   });
 
   afterAll(() => {
@@ -103,6 +134,211 @@ describe('webview render messages', () => {
       type: 'asset-misses',
       paths: ['project://database/Assets/UI/missing.png?fileID=2800000&guid=abc123'],
     });
+  });
+
+  it('passes hover to render exactly', async () => {
+    const message = {
+      ...request('<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Label text="states" /></ui:UXML>'),
+      activeStates: ['hover'],
+    } satisfies RenderRequest;
+
+    window.dispatchEvent(new MessageEvent('message', { data: message }));
+
+    await vi.waitFor(() => expect(lastRenderOptions!.activeStates).toEqual(new Set(['hover'])));
+  });
+
+  it('passes active to render exactly', async () => {
+    const message = {
+      ...request('<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Label text="states" /></ui:UXML>'),
+      activeStates: ['active'],
+    } satisfies RenderRequest;
+
+    window.dispatchEvent(new MessageEvent('message', { data: message }));
+
+    await vi.waitFor(() => expect(lastRenderOptions!.activeStates).toEqual(new Set(['active'])));
+  });
+
+  it('passes focus to render exactly', async () => {
+    const message = {
+      ...request('<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Label text="states" /></ui:UXML>'),
+      activeStates: ['focus'],
+    } satisfies RenderRequest;
+
+    window.dispatchEvent(new MessageEvent('message', { data: message }));
+
+    await vi.waitFor(() => expect(lastRenderOptions!.activeStates).toEqual(new Set(['focus'])));
+  });
+
+  it('passes disabled to render exactly', async () => {
+    const message = {
+      ...request('<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Label text="states" /></ui:UXML>'),
+      activeStates: ['disabled'],
+    } satisfies RenderRequest;
+
+    window.dispatchEvent(new MessageEvent('message', { data: message }));
+
+    await vi.waitFor(() => expect(lastRenderOptions!.activeStates).toEqual(new Set(['disabled'])));
+  });
+
+  it('passes two active states without dropping either', async () => {
+    const message = {
+      ...request('<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Label text="states" /></ui:UXML>'),
+      activeStates: ['hover', 'focus'],
+    } satisfies RenderRequest;
+
+    window.dispatchEvent(new MessageEvent('message', { data: message }));
+
+    await vi.waitFor(() => expect(lastRenderOptions!.activeStates).toEqual(new Set(['hover', 'focus'])));
+    expect(document.querySelector('#active-state-summary')!.textContent).toContain('hover, focus');
+  });
+
+  it('applies hover from 02-styled to the rendered card background', async () => {
+    const uxml = readFileSync(join(process.cwd(), 'examples/basics/02-styled.uxml'), 'utf8');
+    const uss = readFileSync(join(process.cwd(), 'examples/basics/02-styled.uss'), 'utf8');
+    const message = {
+      ...request(uxml, { '02-styled.uss': uss }),
+      activeStates: ['hover'],
+    } satisfies RenderRequest;
+
+    window.dispatchEvent(new MessageEvent('message', { data: message }));
+
+    await vi.waitFor(() => expect(Array.from(lastRender!.elements.values(), (element) => element.style.backgroundColor)
+      .filter(Boolean).map(rgb)).toContain('rgb(30, 58, 95)'));
+  });
+
+  it('shows the same fixed size that render receives', async () => {
+    const message = {
+      ...request('<ui:UXML xmlns:ui="UnityEngine.UIElements" />'),
+      canvas: { width: 800, height: 600 },
+    } satisfies RenderRequest;
+
+    window.dispatchEvent(new MessageEvent('message', { data: message }));
+
+    await vi.waitFor(() => expect(document.querySelector('#canvas-size')!.textContent).toBe('800 × 600'));
+    expect(lastRenderOptions!.size).toEqual({ width: 800, height: 600 });
+    expect(document.querySelector<HTMLInputElement>('#canvas-width')!.value).toBe('800');
+    expect(document.querySelector<HTMLInputElement>('#canvas-height')!.value).toBe('600');
+    expect(document.querySelector<HTMLElement>('#preview')!.style.width).toBe('800px');
+    expect(document.querySelector<HTMLElement>('#preview')!.style.height).toBe('600px');
+  });
+
+  it('makes the Yoga root follow the fit-to-panel wrapper width', async () => {
+    const viewport = document.querySelector<HTMLElement>('#preview-viewport')!;
+    Object.defineProperties(viewport, {
+      clientWidth: { configurable: true, value: 640 },
+      clientHeight: { configurable: true, value: 480 },
+    });
+    const message = {
+      ...request('<ui:UXML xmlns:ui="UnityEngine.UIElements" />'),
+      fitToPanel: true,
+    } satisfies RenderRequest;
+
+    window.dispatchEvent(new MessageEvent('message', { data: message }));
+
+    await vi.waitFor(() => expect(rootBox().width).toBe(640));
+
+    Object.defineProperties(viewport, {
+      clientWidth: { configurable: true, value: 320 },
+      clientHeight: { configurable: true, value: 480 },
+    });
+    window.dispatchEvent(new Event('resize'));
+
+    await vi.waitFor(() => expect(rootBox().width).toBe(320));
+  });
+
+  it('shows the Yoga root size, not merely the requested size', async () => {
+    const viewport = document.querySelector<HTMLElement>('#preview-viewport')!;
+    Object.defineProperties(viewport, {
+      clientWidth: { configurable: true, value: 700 },
+      clientHeight: { configurable: true, value: 500 },
+    });
+
+    window.dispatchEvent(new MessageEvent('message', { data: {
+      ...request('<ui:UXML xmlns:ui="UnityEngine.UIElements" />'),
+      fitToPanel: true,
+    } satisfies RenderRequest }));
+
+    await vi.waitFor(() => expect(rootBox().width).toBe(700));
+    expect(document.querySelector('#canvas-size')!.textContent).toBe(`${rootBox().width} × ${rootBox().height}`);
+  });
+
+  it('re-lays out a 75% child when the fit-to-panel wrapper halves', async () => {
+    const viewport = document.querySelector<HTMLElement>('#preview-viewport')!;
+    Object.defineProperties(viewport, {
+      clientWidth: { configurable: true, value: 800 },
+      clientHeight: { configurable: true, value: 500 },
+    });
+    const uxml = readFileSync(join(process.cwd(), 'examples/basics/10-root-relative.uxml'), 'utf8');
+
+    window.dispatchEvent(new MessageEvent('message', { data: {
+      ...request(uxml),
+      fitToPanel: true,
+    } satisfies RenderRequest }));
+
+    await vi.waitFor(() => expect(rootBox().width).toBe(800));
+    const childId = lastDocumentModel!.root.children.at(0)!.id;
+    const wideWidth = lastRender!.boxes.get(childId)!.width;
+
+    Object.defineProperty(viewport, 'clientWidth', { configurable: true, value: 400 });
+    window.dispatchEvent(new Event('resize'));
+
+    await vi.waitFor(() => expect(rootBox().width).toBe(400));
+    expect(lastRender!.boxes.get(childId)!.width).toBe(wideWidth / 2);
+  });
+
+  it('keeps the fixed Yoga root when the wrapper changes', async () => {
+    const viewport = document.querySelector<HTMLElement>('#preview-viewport')!;
+    Object.defineProperties(viewport, {
+      clientWidth: { configurable: true, value: 800 },
+      clientHeight: { configurable: true, value: 500 },
+    });
+    const message = request('<ui:UXML xmlns:ui="UnityEngine.UIElements" />');
+
+    window.dispatchEvent(new MessageEvent('message', { data: message }));
+
+    await vi.waitFor(() => expect(rootBox().width).toBe(message.canvas.width));
+    Object.defineProperty(viewport, 'clientWidth', { configurable: true, value: 400 });
+    window.dispatchEvent(new Event('resize'));
+    expect(rootBox().width).toBe(message.canvas.width);
+  });
+
+  it('sends changed canvas controls to the host', async () => {
+    const width = document.querySelector<HTMLInputElement>('#canvas-width')!;
+    const height = document.querySelector<HTMLInputElement>('#canvas-height')!;
+    const fit = document.querySelector<HTMLInputElement>('#fit-to-panel')!;
+    width.value = '1280';
+    height.value = '720';
+    fit.checked = true;
+
+    width.dispatchEvent(new Event('change'));
+
+    await vi.waitFor(() => expect(postedMessages).toContainEqual({
+      type: 'canvas-settings',
+      canvas: { width: 1280, height: 720 },
+      fitToPanel: true,
+    }));
+  });
+
+  it.each(['hover', 'active', 'focus', 'disabled'])('sends the %s toggle to the host', async (state) => {
+    const input = document.querySelector<HTMLInputElement>(`input[name="active-state"][value="${state}"]`)!;
+    input.checked = true;
+
+    input.dispatchEvent(new Event('change'));
+
+    await vi.waitFor(() => expect(postedMessages).toContainEqual({
+      type: 'active-states',
+      activeStates: [state],
+    }));
+  });
+
+  it('sends a preset as a fixed canvas size', async () => {
+    document.querySelector<HTMLButtonElement>('[data-width="800"][data-height="600"]')!.click();
+
+    await vi.waitFor(() => expect(postedMessages).toContainEqual({
+      type: 'canvas-settings',
+      canvas: { width: 800, height: 600 },
+      fitToPanel: false,
+    }));
   });
 
   it('uses a supplied asset URI without reporting a miss', async () => {

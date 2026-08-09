@@ -14,3 +14,6 @@
     color: #a6adc8;
     margin-top: 8px;
 }
+.card:hover {
+    background-color: #1e3a5f;
+}

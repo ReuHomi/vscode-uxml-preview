@@ -4,7 +4,7 @@
  */
 import { loadLayoutEngine, parse, render } from 'uxml-preview';
 import type { RenderResult, SourceRef, UxmlDocument, Warning } from 'uxml-preview';
-import type { AssetDiagnostic, HostMessage } from '../src/preview/protocol';
+import type { AssetDiagnostic, HostMessage, RenderRequest } from '../src/preview/protocol';
 import {
   diagnosticGroups,
   warningLines,
@@ -15,9 +15,17 @@ import {
 declare function acquireVsCodeApi(): { postMessage(msg: unknown): void };
 const vscode = acquireVsCodeApi();
 const container = document.querySelector<HTMLElement>('#preview')!;
+const viewport = document.querySelector<HTMLElement>('#preview-viewport')!;
 const warningPanel = document.querySelector<HTMLElement>('#warnings')!;
+const widthInput = document.querySelector<HTMLInputElement>('#canvas-width')!;
+const heightInput = document.querySelector<HTMLInputElement>('#canvas-height')!;
+const fitInput = document.querySelector<HTMLInputElement>('#fit-to-panel')!;
+const stateInputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="active-state"]'));
+const canvasSize = document.querySelector<HTMLOutputElement>('#canvas-size')!;
+const stateSummary = document.querySelector<HTMLOutputElement>('#active-state-summary')!;
 const layoutEngineReady = loadLayoutEngine();
 let current: RenderResult | undefined;
+let lastRequest: RenderRequest | undefined;
 
 function warningLocation(at: SourceRef, documentModel: UxmlDocument): string {
   const source = at.in === 'uxml' ? documentModel.source : documentModel.sheets[at.sheet]?.source;
@@ -140,8 +148,20 @@ async function renderMessage(msg: HostMessage): Promise<void> {
   await layoutEngineReady;
   clearRender();
 
-  container.style.width = `${msg.canvas.width}px`;
-  container.style.height = `${msg.canvas.height}px`;
+  lastRequest = msg;
+  const canvas = msg.fitToPanel ? {
+    width: viewport.clientWidth > 0 ? Math.floor(viewport.clientWidth) : msg.canvas.width,
+    height: viewport.clientHeight > 0 ? Math.floor(viewport.clientHeight) : msg.canvas.height,
+  } : msg.canvas;
+
+  container.style.width = `${canvas.width}px`;
+  container.style.height = `${canvas.height}px`;
+  widthInput.value = String(canvas.width);
+  heightInput.value = String(canvas.height);
+  fitInput.checked = msg.fitToPanel;
+  for (const input of stateInputs) input.checked = msg.activeStates.includes(input.value);
+  canvasSize.textContent = `${canvas.width} × ${canvas.height}`;
+  stateSummary.textContent = msg.activeStates.length === 0 ? 'States: none' : `States: ${msg.activeStates.join(', ')}`;
   warningPanel.replaceChildren();
 
   const assetMisses = new Set<string>();
@@ -149,7 +169,7 @@ async function renderMessage(msg: HostMessage): Promise<void> {
     resolveImport: (url) => msg.imports[url] ?? null,
   });
   const result = render(documentModel, container, {
-    size: msg.canvas,
+    size: canvas,
     activeStates: new Set(msg.activeStates),
     states: msg.states,
     resolveAsset: (path, _form) => {
@@ -171,6 +191,37 @@ async function renderMessage(msg: HostMessage): Promise<void> {
 
   vscode.postMessage({ type: 'asset-misses', paths: [...assetMisses] });
 }
+
+function postCanvasSettings(canvas: { width: number; height: number }, fitToPanel: boolean): void {
+  if (!Number.isInteger(canvas.width) || canvas.width < 1 || !Number.isInteger(canvas.height) || canvas.height < 1) return;
+  vscode.postMessage({ type: 'canvas-settings', canvas, fitToPanel });
+}
+
+for (const input of [widthInput, heightInput]) {
+  input.addEventListener('change', () => postCanvasSettings({
+    width: Number(widthInput.value),
+    height: Number(heightInput.value),
+  }, fitInput.checked));
+}
+fitInput.addEventListener('change', () => {
+  if (lastRequest !== undefined) postCanvasSettings(lastRequest.canvas, fitInput.checked);
+});
+for (const preset of Array.from(document.querySelectorAll<HTMLButtonElement>('[data-width][data-height]'))) {
+  preset.addEventListener('click', () => postCanvasSettings({
+    width: Number(preset.dataset.width),
+    height: Number(preset.dataset.height),
+  }, false));
+}
+for (const input of stateInputs) {
+  input.addEventListener('change', () => vscode.postMessage({
+    type: 'active-states',
+    activeStates: stateInputs.filter(({ checked }) => checked).map(({ value }) => value),
+  }));
+}
+
+window.addEventListener('resize', () => {
+  if (lastRequest?.fitToPanel) void renderMessage(lastRequest);
+});
 
 /**
  * Deps/Effects: the webview window owns this listener until destruction; every

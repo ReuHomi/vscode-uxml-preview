@@ -22,6 +22,7 @@ export interface RenderRequest {
   /** False on discovery render, true after the one permitted asset round trip. */
   readonly assetsResolved: boolean;
   readonly canvas: { readonly width: number; readonly height: number };
+  readonly fitToPanel: boolean;
   /**
    * Pseudo-classes drawn as active on every element, e.g. `['hover']`.
    * Empty until Step 7 adds the toggles.
@@ -61,5 +62,16 @@ export interface AssetMisses {
   readonly paths: readonly string[];
 }
 
+export interface CanvasSettings {
+  readonly type: 'canvas-settings';
+  readonly canvas: { readonly width: number; readonly height: number };
+  readonly fitToPanel: boolean;
+}
+
+export interface ActiveStates {
+  readonly type: 'active-states';
+  readonly activeStates: readonly string[];
+}
+
 export type HostMessage = RenderRequest | RenderFailure;
-export type WebviewMessage = ReadyNotice | AssetMisses;
+export type WebviewMessage = ReadyNotice | AssetMisses | CanvasSettings | ActiveStates;

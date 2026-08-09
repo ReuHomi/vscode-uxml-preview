@@ -26,6 +26,7 @@ function request(projectRoot = ''): RenderRequest {
     assets: {},
     assetsResolved: false,
     canvas: { width: 100, height: 100 },
+    fitToPanel: false,
     activeStates: [],
     states: {},
   };

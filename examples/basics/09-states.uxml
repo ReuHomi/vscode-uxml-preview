@@ -1,0 +1,9 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="09-states.uss" />
+    <ui:VisualElement class="state-list">
+        <ui:Label class="state hover-state" text="hover — pink" />
+        <ui:Label class="state active-state" text="active — orange" />
+        <ui:Label class="state focus-state" text="focus — cyan" />
+        <ui:Label class="state disabled-state" text="disabled — purple" />
+    </ui:VisualElement>
+</ui:UXML>

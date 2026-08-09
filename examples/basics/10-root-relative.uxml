@@ -1,0 +1,9 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement style="width: 75%; height: 240px; padding: 12px; background-color: #26334a;">
+        <ui:Label text="This box is 75% of the canvas width" style="height: 36px; color: #ffffff;" />
+        <ui:VisualElement style="height: 120px; flex-direction: row;">
+            <ui:VisualElement style="width: 160px; background-color: #ff9500;" />
+            <ui:VisualElement style="flex-grow: 1; background-color: #00c7d9;" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

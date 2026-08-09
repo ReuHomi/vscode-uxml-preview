@@ -1,0 +1,24 @@
+.state-list {
+    width: 360px;
+    padding: 12px;
+    background-color: #20242b;
+}
+.state {
+    height: 48px;
+    margin-bottom: 8px;
+    padding: 12px;
+    background-color: #4a505a;
+    color: #ffffff;
+}
+.hover-state:hover {
+    background-color: #ff3b81;
+}
+.active-state:active {
+    background-color: #ff9500;
+}
+.focus-state:focus {
+    background-color: #00c7d9;
+}
+.disabled-state:disabled {
+    background-color: #af52de;
+}
