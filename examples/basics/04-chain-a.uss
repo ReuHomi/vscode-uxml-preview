@@ -1,0 +1,2 @@
+@import url("04-chain-b.uss");
+.shallow { width: 300px; padding: 10px; background-color: #313244; }

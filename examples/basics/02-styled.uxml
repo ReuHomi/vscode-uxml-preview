@@ -1,0 +1,7 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="02-styled.uss" />
+    <ui:VisualElement class="card">
+        <ui:Label class="title" text="Styled card" />
+        <ui:Label class="body" text="If this text is grey on dark blue with a blue left edge, the stylesheet was found." />
+    </ui:VisualElement>
+</ui:UXML>

@@ -1,0 +1,5 @@
+.tile {
+    width: 200px;
+    height: 200px;
+    background-image: url("project://database/Assets/UI/missing.png?fileID=2800000&guid=abc123");
+}

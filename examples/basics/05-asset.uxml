@@ -1,0 +1,4 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="05-asset.uss" />
+    <ui:VisualElement class="tile" />
+</ui:UXML>

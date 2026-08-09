@@ -1,0 +1,6 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="04-chain-a.uss" />
+    <ui:VisualElement class="shallow">
+        <ui:VisualElement class="deep" />
+    </ui:VisualElement>
+</ui:UXML>

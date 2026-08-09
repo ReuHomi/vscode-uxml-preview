@@ -1,0 +1,16 @@
+.card {
+    width: 360px;
+    padding: 16px;
+    background-color: #5fdf0a;
+    border-left-width: 4px;
+    border-left-color: #89b4fa;
+}
+.card > .title {
+    font-size: 20px;
+    color: #cdd6f4;
+}
+.card > .body {
+    font-size: 13px;
+    color: #a6adc8;
+    margin-top: 8px;
+}
