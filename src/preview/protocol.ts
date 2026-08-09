@@ -32,6 +32,12 @@ export interface RenderRequest {
   readonly states: Record<string, readonly string[]>;
 }
 
+/** Host to webview: a refresh failed before a render request could be built. */
+export interface RenderFailure {
+  readonly type: 'render-error';
+  readonly message: string;
+}
+
 /** Webview to host. */
 export interface ReadyNotice {
   readonly type: 'ready';
@@ -43,5 +49,5 @@ export interface AssetMisses {
   readonly paths: readonly string[];
 }
 
-export type HostMessage = RenderRequest;
+export type HostMessage = RenderRequest | RenderFailure;
 export type WebviewMessage = ReadyNotice | AssetMisses;

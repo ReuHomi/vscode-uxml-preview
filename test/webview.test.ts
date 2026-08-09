@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Warning } from 'uxml-preview';
+import { liveNodeCount, type Warning } from 'uxml-preview';
 import type { RenderRequest } from '../src/preview/protocol';
 import { warningLines } from '../webview/warnings';
 
@@ -43,7 +43,11 @@ describe('warningLines', () => {
         { source: 'parse', kind: 'malformed', message: 'broken UXML' },
         { source: 'render', kind: 'unsupported-control', message: 'unknown control' },
         { source: 'render', kind: 'unsupported-control', message: 'unknown control' },
-        { source: 'host', kind: 'unresolved-import', message: 'missing.uss' },
+        {
+          source: 'host',
+          kind: 'unresolved-import',
+          message: 'Unresolved stylesheet: missing.uss. It is not watched; reopen the preview after the file is created.',
+        },
       ]);
   });
 });
@@ -94,5 +98,31 @@ describe('webview render messages', () => {
       expect(text.match(/unsupported-control/g) ?? []).toHaveLength(2);
       expect(text).not.toContain('unsupported-property');
     });
+  });
+
+  it('replaces the DOM without leaking Yoga nodes', async () => {
+    window.dispatchEvent(new MessageEvent('message', { data: request(
+      '<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Label text="first render" /></ui:UXML>',
+    ) }));
+    await vi.waitFor(() => expect(document.querySelector('#preview')!.textContent).toContain('first render'));
+    const baseline = liveNodeCount();
+
+    window.dispatchEvent(new MessageEvent('message', { data: request(
+      '<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Label text="second render" /></ui:UXML>',
+    ) }));
+    await vi.waitFor(() => expect(document.querySelector('#preview')!.textContent).toContain('second render'));
+
+    expect(liveNodeCount()).toBe(baseline);
+    expect(document.querySelector('#preview')!.textContent).not.toContain('first render');
+  });
+
+  it('clears the previous render when the host refresh fails', async () => {
+    window.dispatchEvent(new MessageEvent('message', {
+      data: { type: 'render-error', message: 'could not read the file' },
+    }));
+
+    await vi.waitFor(() => expect(document.body.innerText).toContain('could not read the file'));
+    expect(document.querySelector('#preview')!.children).toHaveLength(0);
+    expect(liveNodeCount()).toBe(0);
   });
 });

@@ -34,6 +34,15 @@ describe('resolveStylesheetPath', () => {
 });
 
 describe('readStylesheet', () => {
+  it('returns the text with the resolved disk path', async () => {
+    const result = await readStylesheet('base.uss', UXML, PROJECT, undefined, async () => '.x {}');
+
+    expect(result).toEqual({
+      text: '.x {}',
+      path: path.join(PROJECT, 'Assets', 'UI', 'base.uss'),
+    });
+  });
+
   it('returns null when the resolved file does not exist', async () => {
     const result = await readStylesheet('missing.uss', UXML, PROJECT, undefined, async () => {
       throw new Error('ENOENT');

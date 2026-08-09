@@ -18,6 +18,10 @@ export function warningLines(
   return [
     ...parseWarnings.map(({ kind, message }) => ({ source: 'parse' as const, kind, message })),
     ...renderWarnings.map(({ kind, message }) => ({ source: 'render' as const, kind, message })),
-    ...unresolvedImports.map((message) => ({ source: 'host' as const, kind: 'unresolved-import', message })),
+    ...unresolvedImports.map((url) => ({
+      source: 'host' as const,
+      kind: 'unresolved-import',
+      message: `Unresolved stylesheet: ${url}. It is not watched; reopen the preview after the file is created.`,
+    })),
   ];
 }

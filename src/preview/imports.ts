@@ -23,14 +23,21 @@ const MAX_ROUNDS = 16;
 export interface ImportMap {
   /** URL exactly as it appears in the file, to stylesheet text. */
   readonly resolved: ReadonlyMap<string, string>;
+  /** Disk paths for resolved stylesheets. Only these are safe to watch. */
+  readonly paths: readonly string[];
   /** URLs asked for that no reader could turn into text. */
   readonly unresolved: readonly string[];
   /** Rounds used. Equal to MAX_ROUNDS means the walk was cut short. */
   readonly rounds: number;
 }
 
-/** Reads the text a URL stands for, or null. Async because the host can be. */
-export type ReadStylesheet = (url: string) => Promise<string | null>;
+export interface StylesheetSource {
+  readonly text: string;
+  readonly path: string;
+}
+
+/** Reads the text and disk path a URL stands for, or null. */
+export type ReadStylesheet = (url: string) => Promise<StylesheetSource | null>;
 
 const PROJECT_ASSETS_PREFIX = 'project://database/Assets/';
 const GUID_ONLY = /^(?:guid:\/\/)?[0-9a-f]{32}$/i;
@@ -72,12 +79,12 @@ export async function readStylesheet(
   projectRoot: string | undefined,
   workspaceRoot: string | undefined,
   readFile: (path: string) => Promise<string>,
-): Promise<string | null> {
+): Promise<StylesheetSource | null> {
   const resolved = resolveStylesheetPath(url, uxmlPath, projectRoot, workspaceRoot);
   if (resolved === null) return null;
 
   try {
-    return await readFile(resolved);
+    return { text: await readFile(resolved), path: resolved };
   } catch {
     return null;
   }
@@ -89,6 +96,7 @@ export async function collectImports(
   read: ReadStylesheet,
 ): Promise<ImportMap> {
   const resolved = new Map<string, string>();
+  const paths = new Set<string>();
   const unresolved = new Set<string>();
   let rounds = 0;
 
@@ -109,11 +117,18 @@ export async function collectImports(
     if (misses.length === 0) break;
 
     for (const url of misses) {
-      const text = await read(url);
-      if (text === null) unresolved.add(url);
-      else resolved.set(url, text);
+      const source = await read(url);
+      if (source === null) unresolved.add(url);
+      else {
+        resolved.set(url, source.text);
+        paths.add(source.path);
+      }
     }
   }
 
-  return { resolved, unresolved: [...unresolved], rounds };
+  return { resolved, paths: [...paths], unresolved: [...unresolved], rounds };
+}
+
+export function watchTargets(uxmlPath: string, importPaths: readonly string[]): string[] {
+  return [uxmlPath, ...importPaths];
 }

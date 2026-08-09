@@ -23,13 +23,23 @@ function showWarnings(lines: readonly WarningLine[]): void {
 }
 
 /**
+ * Deps/Effects: frees the current Yoga tree and removes its DOM. Called before
+ *               replacement, on refresh failure, and when the webview closes.
+ */
+function clearRender(): void {
+  current?.dispose();
+  current = undefined;
+  container.replaceChildren();
+}
+
+/**
  * Deps/Effects: owns the current RenderResult. Disposes it before replacement;
  *               the unload listener below disposes the final result.
  */
 async function renderMessage(msg: HostMessage): Promise<void> {
+  if (msg.type !== 'render') return;
   await layoutEngineReady;
-  current?.dispose();
-  current = undefined;
+  clearRender();
 
   container.style.width = `${msg.canvas.width}px`;
   container.style.height = `${msg.canvas.height}px`;
@@ -62,19 +72,24 @@ async function renderMessage(msg: HostMessage): Promise<void> {
  */
 window.addEventListener('message', (event: MessageEvent<HostMessage>) => {
   const msg = event.data;
-  if (msg.type !== 'render') return;
+  if (msg.type === 'render-error') {
+    clearRender();
+    showWarnings([{ source: 'host', kind: msg.type, message: msg.message }]);
+    return;
+  }
   void renderMessage(msg).catch((error: unknown) => {
     console.error(error);
-    warningList.replaceChildren();
-    const item = document.createElement('li');
-    item.textContent = `webview: ${error instanceof Error ? error.message : String(error)}`;
-    warningList.append(item);
+    clearRender();
+    showWarnings([{
+      source: 'host',
+      kind: 'render-error',
+      message: error instanceof Error ? error.message : String(error),
+    }]);
   });
 });
 
 window.addEventListener('unload', () => {
-  current?.dispose();
-  current = undefined;
+  clearRender();
 });
 
 vscode.postMessage({ type: 'ready' });
