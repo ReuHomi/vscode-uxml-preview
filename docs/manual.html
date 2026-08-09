@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UXML Preview User Manual</title>
+<style>
+/* Template palette: VS Code blue with the original functional accents. */
+:root{
+  --main:#2563A6; --main-deep:#194879; --main-dark:#102F52;
+  --wash:#EAF1F8; --wash-line:#B9CADC;
+  --paper:#FFFDF8; --ink:#242A33;
+  --amber:#E8A33D; --amber-bg:#FDF3E1; --amber-deep:#B07514;
+  --teal:#3E9B8F; --teal-bg:#E4F2F0; --teal-deep:#256B62;
+  --coral:#E06B5F; --coral-bg:#FBE9E6; --coral-deep:#A93E33;
+  --gray:#747D8C;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:Arial,sans-serif;color:var(--ink);background:var(--wash);line-height:1.7;font-size:15px;}
+.manual{max-width:880px;margin:0 auto;background:var(--paper);box-shadow:0 0 24px rgba(0,0,0,.15);overflow:hidden;}
+.cover{background:var(--main);color:#fff;padding:58px 48px 0;position:relative;overflow:hidden;}
+.cover .big-g{position:absolute;right:-60px;top:-60px;width:300px;height:300px;border:28px solid rgba(255,255,255,.08);border-radius:50%;}
+.cover .big-g2{position:absolute;right:60px;top:60px;width:120px;height:120px;border:14px solid rgba(255,255,255,.10);border-radius:50%;}
+.cover .tag{display:inline-block;background:#fff;color:var(--main-deep);font-family:'Arial Black',Arial,sans-serif;font-size:13px;padding:4px 16px;border-radius:20px;letter-spacing:2px;}
+.cover h1{font-family:'Arial Black',Arial,sans-serif;font-size:56px;letter-spacing:3px;margin:16px 0 2px;position:relative;}
+.cover .sub{font-size:16px;opacity:.92;font-weight:500;position:relative;}
+.cover .chips{margin:26px 0 0;display:flex;gap:8px;flex-wrap:wrap;position:relative;}
+.cover .chip{border:2px solid rgba(255,255,255,.5);border-radius:16px;padding:2px 12px;font-size:11.5px;letter-spacing:1px;font-weight:700;}
+.cover .strip{margin:34px -48px 0;background:var(--main-dark);padding:12px 48px;display:flex;justify-content:space-between;font-size:11.5px;letter-spacing:2px;opacity:.95;}
+section{padding:44px 48px;border-bottom:4px solid var(--wash);}
+.band{position:relative;margin:0 0 26px;}
+.band .bg{display:inline-block;background:var(--main);transform:skew(-12deg);border-radius:6px;padding:8px 26px 8px 20px;box-shadow:5px 5px 0 var(--wash-line);}
+.band .bg>span{display:inline-block;transform:skew(12deg);font-family:'Arial Black',Arial,sans-serif;font-size:25px;color:#fff;letter-spacing:2px;}
+.band .num{display:inline-block;background:#fff;color:var(--main);font-family:'Arial Black',Arial,sans-serif;font-size:22px;width:42px;height:42px;line-height:42px;text-align:center;border-radius:50%;border:3px solid var(--main);margin-right:12px;vertical-align:middle;box-shadow:3px 3px 0 var(--wash-line);}
+.band .en{display:block;font-size:10.5px;letter-spacing:4px;color:var(--gray);font-weight:800;margin:8px 0 0 4px;}
+h3{font-family:'Arial Black',Arial,sans-serif;font-size:18px;color:var(--main);margin:26px 0 10px;}
+h3::before{content:"■ ";color:var(--amber);font-size:13px;vertical-align:2px;}
+p{margin-bottom:10px;}
+strong{color:var(--main-deep);}
+code,.cmd{font-family:Consolas,'Courier New',monospace;background:var(--wash);border-radius:6px;padding:1px 7px;font-size:13px;color:var(--main-dark);font-weight:700;}
+pre.term{font-family:Consolas,monospace;font-size:13px;background:var(--main-dark);color:#EDEBF7;border-radius:12px;padding:14px 18px;margin:12px 0;overflow-x:auto;line-height:1.7;}
+pre.term .out{color:#AFC9E2;}
+.pull{margin:24px 10px;padding:6px 0 6px 22px;border-left:8px solid var(--amber);font-family:'Arial Black',Arial,sans-serif;font-size:21px;color:var(--main-deep);line-height:1.5;transform:rotate(-.6deg);}
+.pull small{display:block;font-family:Arial,sans-serif;font-weight:700;font-size:11px;color:var(--gray);letter-spacing:2px;margin-top:4px;}
+.note{background:var(--amber-bg);border:2.5px solid var(--amber);border-radius:14px;padding:18px 18px 14px;margin:16px 0;font-size:14px;position:relative;}
+.note .nt{position:absolute;top:-13px;left:14px;background:var(--amber);color:#fff;font-family:'Arial Black',Arial,sans-serif;font-size:12.5px;padding:2px 12px;border-radius:12px;letter-spacing:1px;}
+.tip{background:var(--teal-bg);border:2.5px solid var(--teal);border-radius:14px;padding:18px 18px 14px;margin:16px 0;font-size:14px;position:relative;}
+.tip .nt{position:absolute;top:-13px;left:14px;background:var(--teal);color:#fff;font-family:'Arial Black',Arial,sans-serif;font-size:12.5px;padding:2px 12px;border-radius:12px;letter-spacing:1px;}
+.note p:last-child,.tip p:last-child{margin:0;}
+.toc{list-style:none;columns:2;column-gap:36px;}
+.toc li{display:flex;align-items:baseline;gap:10px;padding:8px 0;border-bottom:1.5px dotted var(--wash-line);font-weight:500;break-inside:avoid;font-size:14px;}
+.toc .n{font-family:'Arial Black',Arial,sans-serif;color:#fff;background:var(--main);width:24px;height:24px;line-height:24px;border-radius:50%;text-align:center;font-size:12.5px;flex-shrink:0;}
+.toc .dots{flex:1;}
+.toc .pg{color:var(--gray);font-size:10px;letter-spacing:1px;font-weight:800;}
+.ox-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:18px 0;}
+.oxcard{border:3px solid;border-radius:16px;overflow:hidden;background:#fff;page-break-inside:avoid;}
+.oxcard.ok{border-color:var(--teal);}.oxcard.no{border-color:var(--coral);}
+.oxcard .oxhead{display:flex;align-items:center;gap:10px;padding:10px 16px;color:#fff;font-family:'Arial Black',Arial,sans-serif;font-size:15px;letter-spacing:1px;}
+.oxcard.ok .oxhead{background:var(--teal);}.oxcard.no .oxhead{background:var(--coral);}
+.oxcard .mark{width:30px;height:30px;border-radius:50%;background:#fff;font-size:17px;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;}
+.oxcard.ok .mark{color:var(--teal);}.oxcard.no .mark{color:var(--coral);}
+.tree{font-family:Consolas,monospace;font-size:12.5px;line-height:1.85;padding:14px 18px;}
+.tree .d{color:var(--main);font-weight:700;}.tree .hl{background:var(--teal-bg);border-radius:4px;padding:0 5px;font-weight:700;color:var(--teal-deep);}.tree .bad{background:var(--coral-bg);border-radius:4px;padding:0 5px;font-weight:700;color:var(--coral-deep);}.tree .c{color:var(--gray);}
+.oxcard .cap{padding:0 16px 13px;font-size:12.5px;color:var(--gray);}
+.steps4{counter-reset:st;margin:18px 0;}
+.step4{display:flex;gap:16px;margin:14px 0;background:#fff;border:2.5px solid var(--wash-line);border-radius:16px;padding:16px 18px;page-break-inside:avoid;position:relative;}
+.step4::before{counter-increment:st;content:"STEP " counter(st);position:absolute;top:-12px;left:16px;background:var(--main);color:#fff;font-family:'Arial Black',Arial,sans-serif;font-size:12px;letter-spacing:2px;padding:2px 12px;border-radius:12px;}
+.step4 .ic{flex-shrink:0;width:58px;height:58px;border-radius:14px;background:var(--wash);display:flex;align-items:center;justify-content:center;font-family:'Arial Black',Arial,sans-serif;font-size:26px;color:var(--main);}
+.step4 .bd{flex:1;}.step4 .bd .t{font-family:'Arial Black',Arial,sans-serif;font-size:16px;color:var(--main-deep);margin-bottom:3px;}.step4 .bd p{font-size:13.5px;margin-bottom:4px;}
+.agent-mag{display:flex;gap:18px;margin:22px 0;page-break-inside:avoid;}
+.agent-mag:nth-child(even){flex-direction:row-reverse;}
+.agent-mag .portrait{flex-shrink:0;width:170px;border:3px solid var(--main);border-radius:18px;overflow:hidden;background:#fff;align-self:flex-start;transform:rotate(-1.2deg);box-shadow:5px 5px 0 var(--wash-line);}
+.agent-mag:nth-child(even) .portrait{transform:rotate(1.2deg);}
+.agent-mag .portrait .ph{height:110px;background:var(--main);display:flex;align-items:center;justify-content:center;position:relative;}
+.agent-mag .portrait .ph span{font-family:'Arial Black',Arial,sans-serif;font-size:52px;color:#fff;}
+.agent-mag .portrait .ph .role{position:absolute;bottom:6px;right:8px;font-size:9px;letter-spacing:2px;color:rgba(255,255,255,.8);font-weight:800;}
+.agent-mag .portrait .nm{font-family:'Arial Black',Arial,sans-serif;text-align:center;padding:8px 4px;font-size:16px;color:var(--main-deep);}
+.agent-mag .portrait .meters{padding:0 12px 12px;}.agent-mag .meter{margin:5px 0;}.agent-mag .meter .lb{font-size:10px;font-weight:800;color:var(--gray);letter-spacing:1px;}.agent-mag .meter .tr{height:9px;background:var(--wash);border-radius:5px;overflow:hidden;}.agent-mag .meter .fl{height:100%;background:var(--main);border-radius:5px;}
+.agent-mag .bio{flex:1;}.agent-mag .bubble{position:relative;background:#fff;border:2.5px solid var(--main);border-radius:16px;padding:12px 16px;font-family:'Arial Black',Arial,sans-serif;font-size:15.5px;color:var(--main-deep);margin-bottom:12px;}
+.agent-mag .bubble::after{content:"";position:absolute;left:-13px;top:20px;border:8px solid transparent;border-right:12px solid var(--main);}.agent-mag:nth-child(even) .bubble::after{left:auto;right:-13px;border-right:none;border-left:12px solid var(--main);}
+.agent-mag .bio table{width:100%;border-collapse:collapse;font-size:13px;background:#fff;}.agent-mag .bio td{padding:7px 10px;border:1.5px solid var(--wash-line);vertical-align:top;}.agent-mag .bio td:first-child{font-family:'Arial Black',Arial,sans-serif;color:var(--main);width:76px;white-space:nowrap;background:var(--wash);}
+.decide{margin:16px 0;}.drow{display:flex;align-items:center;gap:0;margin:9px 0;page-break-inside:avoid;}.drow .cond{flex:1;background:#fff;border:2.5px solid var(--wash-line);border-radius:12px 0 0 12px;border-right:none;padding:9px 14px;font-size:13.5px;font-weight:500;}.drow .arr{width:34px;height:34px;background:var(--amber);color:#fff;font-family:'Arial Black',Arial,sans-serif;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;clip-path:polygon(0 0,60% 0,100% 50%,60% 100%,0 100%);}.drow .go{flex-shrink:0;width:280px;background:var(--main);color:#fff;border-radius:0 12px 12px 0;padding:9px 14px;font-family:Consolas,monospace;font-weight:700;font-size:13px;}
+table.man{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;background:#fff;}table.man th{background:var(--main);color:#fff;font-family:'Arial Black',Arial,sans-serif;font-weight:400;padding:9px 12px;text-align:left;font-size:14px;letter-spacing:1px;}table.man td{padding:9px 12px;border:1.5px solid var(--wash-line);vertical-align:top;}table.man tr:nth-child(even) td{background:var(--wash);}
+.timeline{display:flex;gap:0;margin:20px 0;flex-wrap:wrap;}.tl{flex:1;min-width:150px;position:relative;padding:0 10px 0 0;}.tl .dot{width:20px;height:20px;border-radius:50%;background:var(--main);border:4px solid var(--wash);box-shadow:0 0 0 2px var(--main);margin-bottom:8px;}.tl::before{content:"";position:absolute;top:9px;left:24px;right:0;height:3px;background:var(--wash-line);}.tl:last-child::before{display:none;}.tl .tt{font-family:'Arial Black',Arial,sans-serif;font-size:14.5px;color:var(--main-deep);}.tl .td{font-size:12px;padding-right:6px;}
+.faq{margin:14px 0;page-break-inside:avoid;background:#fff;border:2px solid var(--wash-line);border-radius:12px;padding:12px 16px;}.faq .q{font-family:'Arial Black',Arial,sans-serif;color:var(--main-deep);font-size:15px;margin-bottom:4px;}.faq .q::before{content:"Q. ";color:var(--coral);}.faq .a{padding-left:22px;font-size:13.5px;}.faq .a::before{content:"A. ";font-family:'Arial Black',Arial,sans-serif;color:var(--teal);}
+.endpage{background:var(--main);color:#fff;text-align:center;padding:36px;font-size:12px;letter-spacing:2px;}.endpage .lg{font-family:'Arial Black',Arial,sans-serif;font-size:24px;letter-spacing:4px;margin-bottom:8px;}
+@media print{
+  body{background:#fff;font-size:12.5px;}
+  .manual{box-shadow:none;max-width:100%;}
+  section{padding:26px 22px;}
+  .cover,.band .bg,.toc .n,.oxcard .oxhead,.step4::before,.agent-mag .portrait .ph,
+  .fstep .ball,.phasebar .pb,.drow .arr,.drow .go,.skill .bar,table.man th,.dcard .dh,
+  .memcard,.filemap,.endpage,.note .nt,.tip .nt,.burst,.tl .dot,pre.term
+    {-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .skill,.agent-mag,.faq,.fstep,.oxcard,.step4,.dcard,.drow{page-break-inside:avoid;}
+  .band{page-break-after:avoid;}
+}
+@media(max-width:720px){
+  section{padding:28px 20px;}
+  .ox-grid,.diff{grid-template-columns:1fr;}
+  .skill .grid{grid-template-columns:1fr;}
+  .toc{columns:1;}
+  .agent-mag{flex-direction:column!important;}
+  .agent-mag .portrait{width:100%;transform:none;}
+  .drow{flex-wrap:wrap;}.drow .go{width:100%;border-radius:0 0 12px 12px;}
+  .cover h1{font-size:40px;}
+}
+</style>
+</head>
+<body>
+<div class="manual">
+
+<!-- COVER -->
+<div class="cover">
+  <div class="big-g"></div><div class="big-g2"></div>
+  <span class="tag">INSTRUCTION BOOKLET</span>
+  <h1>UXML PREVIEW</h1>
+  <div class="sub">Read Unity UI Toolkit documents without opening the Unity Editor.</div>
+  <div class="chips">
+    <span class="chip">VERSION 0.0.1</span><span class="chip">VS CODE 1.90+</span>
+    <span class="chip">UNITY DEVELOPERS</span>
+  </div>
+  <div class="strip"><span>ENGLISH EDITION</span><span>VIEWER, NOT EDITOR</span></div>
+</div>
+
+<!-- CONTENTS -->
+<section>
+  <div class="band"><span class="bg"><span>Contents</span></span><span class="en">CONTENTS</span></div>
+  <ul class="toc">
+    <li><span class="n">1</span>What this viewer does<span class="dots"></span><span class="pg">BASICS</span></li>
+    <li><span class="n">2</span>First preview<span class="dots"></span><span class="pg">INSTALL</span></li>
+    <li><span class="n">3</span>Four concepts to know<span class="dots"></span><span class="pg">CHARACTERS</span></li>
+    <li><span class="n">4</span>Symptom to action<span class="dots"></span><span class="pg">NAVI CHART</span></li>
+    <li><span class="n">5</span>A normal work session<span class="dots"></span><span class="pg">QUICK PLAY</span></li>
+    <li><span class="n">6</span>Problem solving<span class="dots"></span><span class="pg">TROUBLESHOOTING</span></li>
+  </ul>
+</section>
+
+<!-- 1 BASICS -->
+<section>
+  <div class="band"><span class="num">1</span><span class="bg"><span>What this viewer does</span></span><span class="en">BASICS</span></div>
+  <p>UXML Preview renders a <code>.uxml</code> document in a VS Code webview. The extension reads and watches files; the <code>uxml-preview</code> core parses UXML and USS, lays it out with Yoga, and paints the result.</p>
+  <div class="pull">"If the renderer cannot honor something, the panel must say so."<small>THE VIEWER'S CONTRACT</small></div>
+  <p>It draws five control types: <code>VisualElement</code>, <code>Label</code>, <code>Button</code>, <code>Image</code>, and <code>ScrollView</code>. Other controls become plain fallback boxes. <code>Template</code> and <code>Instance</code> are not rendered.</p>
+  <div class="tip"><span class="nt">SCOPE</span><p>This is a viewer. It does not edit files, validate USS, reproduce every UI Toolkit control, or put diagnostics in VS Code's Problems panel.</p></div>
+
+  <h3>Commands</h3>
+  <table class="man">
+    <tr><th>Command</th><th>Where it opens</th><th>Shortcut</th></tr>
+    <tr><td><code>UXML Preview: Open Preview</code></td><td>Current editor column</td><td>Command Palette</td></tr>
+    <tr><td><code>UXML Preview: Open Preview to the Side</code></td><td>Beside the source document</td><td><code>Ctrl+Shift+V</code><br><code>Cmd+Shift+V</code> on macOS</td></tr>
+  </table>
+
+  <h3>Settings</h3>
+  <table class="man">
+    <tr><th>Setting</th><th>Default</th><th>Meaning</th></tr>
+    <tr><td><code>uxmlPreview.canvas.width</code></td><td><code>1920</code></td><td>Fixed root width in pixels.</td></tr>
+    <tr><td><code>uxmlPreview.canvas.height</code></td><td><code>1080</code></td><td>Fixed root height in pixels.</td></tr>
+    <tr><td><code>uxmlPreview.canvas.fitToPanel</code></td><td><code>false</code></td><td>Use the preview area's current size instead of the fixed size.</td></tr>
+    <tr><td><code>uxmlPreview.projectRoot</code></td><td>empty</td><td>Unity project root for project paths and GUID references. Empty uses the workspace folder containing the file.</td></tr>
+    <tr><td><code>uxmlPreview.states</code></td><td><code>{}</code></td><td>Pseudo-class states keyed by USS selector. This version has no selector input UI.</td></tr>
+  </table>
+  <div class="note"><span class="nt">CANVAS DEFAULT</span><p>The fixed 1920 by 1080 canvas is deliberate. A layout with 3 pixels of slack can flip after a 4-pixel size difference. A fixed root gives different readers the same layout input.</p></div>
+</section>
+
+<!-- 2 INSTALL -->
+<section>
+  <div class="band"><span class="num">2</span><span class="bg"><span>First preview</span></span><span class="en">INSTALL</span></div>
+  <p>Install UXML Preview from the Visual Studio Marketplace inside VS Code, then open a UXML document. No Unity Editor process is required for the preview.</p>
+
+  <h3>Open a document, not a stylesheet</h3>
+  <div class="ox-grid">
+    <div class="oxcard ok">
+      <div class="oxhead"><span class="mark">O</span>Open the UXML</div>
+      <div class="tree"><span class="d">Panel.uxml</span><br>&nbsp;&nbsp;<span class="hl">&lt;Style src="Panel.uss" /&gt;</span></div>
+      <div class="cap">In Unity UI Toolkit, a stylesheet only takes effect when attached to a document.</div>
+    </div>
+    <div class="oxcard no">
+      <div class="oxhead"><span class="mark">X</span>Open USS alone</div>
+      <div class="tree"><span class="bad">Panel.uss</span><br>&nbsp;&nbsp;<span class="c">no document tree to draw</span></div>
+      <div class="cap">A USS file cannot be rendered on its own.</div>
+    </div>
+  </div>
+
+  <h3>Install and open</h3>
+  <div class="steps4">
+    <div class="step4"><div class="ic">▣</div><div class="bd"><div class="t">Open Extensions</div><p>In VS Code 1.90 or later, open the Extensions view with <code>Ctrl+Shift+X</code>, or <code>Cmd+Shift+X</code> on macOS.</p></div></div>
+    <div class="step4"><div class="ic">◈</div><div class="bd"><div class="t">Find the extension</div><p>Search for <strong>UXML Preview for Unity UI Toolkit</strong> in the Visual Studio Marketplace.</p></div></div>
+    <div class="step4"><div class="ic">▤</div><div class="bd"><div class="t">Install</div><p>Select the extension published by <code>reuhomi</code> and choose <strong>Install</strong>.</p></div></div>
+    <div class="step4"><div class="ic">◇</div><div class="bd"><div class="t">Open the first preview</div><p>Open a <code>.uxml</code> file and press <code>Ctrl+Shift+V</code>, or <code>Cmd+Shift+V</code> on macOS. A preview opens beside the editor.</p></div></div>
+  </div>
+  <div class="tip"><span class="nt">FIRST WIN</span><p>If the panel shows a canvas and a diagnostics summary, the extension, webview, and renderer have all started.</p></div>
+</section>
+
+<!-- 3 CHARACTERS -->
+<section>
+  <div class="band"><span class="num">3</span><span class="bg"><span>Four concepts to know</span></span><span class="en">CHARACTERS</span></div>
+  <p>The controls are simple. These four ideas explain why the picture may differ from Unity and what the viewer is telling you.</p>
+
+  <div class="agent-mag">
+    <div class="portrait">
+      <div class="ph"><span>▣</span><span class="role">STAND-IN</span></div>
+      <div class="nm">Fallback</div>
+      <div class="meters">
+        <div class="meter"><span class="lb">PRESENCE 100%</span><div class="tr"><div class="fl" style="width:100%"></div></div></div>
+        <div class="meter"><span class="lb">CONTROL BEHAVIOR 0%</span><div class="tr"><div class="fl" style="width:0%"></div></div></div>
+      </div>
+    </div>
+    <div class="bio">
+      <div class="bubble">"I forgot which control I used to be, but I do not disappear without a trace."</div>
+      <table><tr><td>Role</td><td>An unsupported control becomes a plain box and produces an <code>unsupported-control</code> diagnostic.</td></tr><tr><td>Metaphor</td><td>A stage stand-in marks where the missing actor belongs. The metaphor stops at behavior: the box does not recreate the original control.</td></tr><tr><td>Watch</td><td>A zero-height fallback still receives an outline marker; overlapping markers at the same position share a count.</td></tr></table>
+    </div>
+  </div>
+
+  <div class="agent-mag">
+    <div class="portrait">
+      <div class="ph" style="background:var(--teal)"><span>◈</span><span class="role">TRIAGE</span></div>
+      <div class="nm">Diagnostics</div>
+      <div class="meters">
+        <div class="meter"><span class="lb">INFORMATION KEPT 100%</span><div class="tr"><div class="fl" style="width:100%;background:var(--teal)"></div></div></div>
+        <div class="meter"><span class="lb">AUTO-REPAIR 0%</span><div class="tr"><div class="fl" style="width:0%;background:var(--teal)"></div></div></div>
+      </div>
+    </div>
+    <div class="bio">
+      <div class="bubble" style="border-color:var(--teal)">"I group by what you can do next, not by warning kind or severity."</div>
+      <table><tr><td>Role</td><td><strong>A: Fixable</strong> covers file, path, setting, and malformed-input work. <strong>B: Waiting for support</strong> covers unsupported renderer features. <strong>C: Renderer differences from Unity</strong> covers version-dependent and known differences.</td></tr><tr><td>Metaphor</td><td>A triage desk sends each item to the person who can act. It is not a severity scale: C is not automatically worse than A.</td></tr><tr><td>Watch</td><td>Core text and host context can share one item. The header counts issues, not the number of displayed lines.</td></tr></table>
+    </div>
+  </div>
+
+  <div class="agent-mag">
+    <div class="portrait">
+      <div class="ph" style="background:var(--amber)"><span>▤</span><span class="role">RULER</span></div>
+      <div class="nm">Canvas</div>
+      <div class="meters">
+        <div class="meter"><span class="lb">FIXED INPUT 100%</span><div class="tr"><div class="fl" style="width:100%;background:var(--amber)"></div></div></div>
+        <div class="meter"><span class="lb">PANEL FOLLOWING 0%</span><div class="tr"><div class="fl" style="width:0%;background:var(--amber)"></div></div></div>
+      </div>
+    </div>
+    <div class="bio">
+      <div class="bubble" style="border-color:var(--amber)">"I stay at 1920 by 1080 until you explicitly ask me to follow the panel."</div>
+      <table><tr><td>Role</td><td>The root size is an input to layout. The current size is always shown in the control bar.</td></tr><tr><td>Metaphor</td><td>A fixed ruler lets two readers compare the same measurement. The metaphor stops when <strong>Fit to panel</strong> is on: the root is re-laid out, not zoomed.</td></tr><tr><td>Watch</td><td>Three pixels of spare room can become a different layout after a four-pixel size change.</td></tr></table>
+    </div>
+  </div>
+
+  <div class="agent-mag">
+    <div class="portrait">
+      <div class="ph" style="background:var(--coral)"><span>◇</span><span class="role">ADDRESS</span></div>
+      <div class="nm">Project root</div>
+      <div class="meters">
+        <div class="meter"><span class="lb">PATH FIRST 100%</span><div class="tr"><div class="fl" style="width:100%;background:var(--coral)"></div></div></div>
+        <div class="meter"><span class="lb">PACKAGE CACHE 0%</span><div class="tr"><div class="fl" style="width:0%;background:var(--coral)"></div></div></div>
+      </div>
+    </div>
+    <div class="bio">
+      <div class="bubble" style="border-color:var(--coral)">"Try the written path first. If an asset moved, its GUID can still lead me to the file."</div>
+      <table><tr><td>Role</td><td><code>uxmlPreview.projectRoot</code> anchors Unity project paths. Asset references commonly carry both a path and a GUID; a moved file keeps the GUID in its <code>.meta</code>.</td></tr><tr><td>Metaphor</td><td>An address book tries the street address, then the stable identity. The metaphor stops at stylesheets: GUID fallback is for assets, not USS imports.</td></tr><tr><td>Watch</td><td>The GUID index is built only after a path miss and is reused while the panel lives. <code>Library/PackageCache</code> is not searched.</td></tr></table>
+    </div>
+  </div>
+</section>
+
+<!-- 4 NAVI CHART -->
+<section>
+  <div class="band"><span class="num">4</span><span class="bg"><span>Symptom to action</span></span><span class="en">NAVI CHART</span></div>
+  <p>Read from the top and stop at the <strong>first row that matches</strong>.</p>
+  <div class="decide">
+    <div class="drow"><div class="cond">You opened a <code>.uss</code> file.</div><div class="arr">▶</div><div class="go">Open a .uxml that references it.</div></div>
+    <div class="drow"><div class="cond">The panel is magenta and says <code>asset-unresolved</code>.</div><div class="arr">▶</div><div class="go">Check projectRoot, path, and GUID.</div></div>
+    <div class="drow"><div class="cond">A plain outlined box says <code>unsupported-control</code>.</div><div class="arr">▶</div><div class="go">Treat it as unsupported renderer coverage.</div></div>
+    <div class="drow"><div class="cond">The image renders, but A says the written path is stale.</div><div class="arr">▶</div><div class="go">Update the UXML path to the found file.</div></div>
+    <div class="drow"><div class="cond">A newly created missing import is still unresolved.</div><div class="arr">▶</div><div class="go">Reopen the preview to rebuild watches.</div></div>
+    <div class="drow"><div class="cond">The fixed canvas is wider than the panel.</div><div class="arr">▶</div><div class="go">Enable Fit to panel when responsive layout is intended.</div></div>
+    <div class="drow"><div class="cond">Text-dependent geometry differs by a few pixels.</div><div class="arr">▶</div><div class="go">Read group C before treating it as a defect.</div></div>
+  </div>
+</section>
+
+<!-- 5 QUICK PLAY -->
+<section>
+  <div class="band"><span class="num">5</span><span class="bg"><span>A normal work session</span></span><span class="en">QUICK PLAY</span></div>
+  <div class="timeline">
+    <div class="tl"><div class="dot"></div><div class="tt">Open</div><div class="td">Select the UXML and open the preview to the side.</div></div>
+    <div class="tl"><div class="dot"></div><div class="tt">Set context</div><div class="td">Confirm canvas size, active states, and project root.</div></div>
+    <div class="tl"><div class="dot"></div><div class="tt">Edit and save</div><div class="td">Change UXML or a resolved USS file. Saving triggers a rerender.</div></div>
+    <div class="tl"><div class="dot"></div><div class="tt">Read diagnostics</div><div class="td">Fix A, note B, and understand C before comparing with Unity.</div></div>
+    <div class="tl"><div class="dot"></div><div class="tt">Compare</div><div class="td">Use the displayed root size when checking the same document in Unity.</div></div>
+  </div>
+  <div class="note"><span class="nt">STATE CHECK</span><p>The control bar can apply <code>hover</code>, <code>active</code>, <code>focus</code>, and <code>disabled</code> to every element. Check those boxes before deciding that Unity and the preview disagree.</p></div>
+</section>
+
+<!-- 6 TROUBLESHOOTING -->
+<section>
+  <div class="band"><span class="num">6</span><span class="bg"><span>Problem solving</span></span><span class="en">TROUBLESHOOTING</span></div>
+  <div class="faq"><div class="q">Why does nothing open for a USS file?</div><div class="a">A USS file cannot be rendered on its own. In Unity UI Toolkit, a stylesheet only takes effect when attached to a document. Open a <code>.uxml</code> file that references this stylesheet with <code>&lt;Style src&gt;</code>.</div></div>
+  <div class="faq"><div class="q">Why is an image replaced by magenta stripes?</div><div class="a">The asset resolver missed. Check the A group, then compare <code>uxmlPreview.projectRoot</code>, the written path, and the GUID.</div></div>
+  <div class="faq"><div class="q">Why did an image render through GUID fallback and still produce a warning?</div><div class="a">The image exists, but the path written in the UXML is stale. Update the document path to the actual location.</div></div>
+  <div class="faq"><div class="q">Why is a custom control only an outlined box?</div><div class="a">The core supports only five control types. The box preserves the unsupported control's location; its B diagnostic names the missing support.</div></div>
+  <div class="faq"><div class="q">Why do Template and Instance not appear as composed UI?</div><div class="a">Template composition is not supported. They remain explicit fallbacks instead of being silently treated as successful renders.</div></div>
+  <div class="faq"><div class="q">Why do nested relative USS imports fail?</div><div class="a">The current core import hook does not tell the host which stylesheet requested a relative import. The extension does not guess that base path.</div></div>
+  <div class="faq"><div class="q">Why does an inline-style image URL containing XML entities fail?</div><div class="a">Inline asset URLs can reach the resolver before those entities are decoded. The extension leaves this parser-boundary issue visible.</div></div>
+  <div class="faq"><div class="q">Why is a package file under Library missing?</div><div class="a">Only <code>&lt;projectRoot&gt;/Packages</code> is searched. <code>Library/PackageCache</code> is outside the current lookup scope.</div></div>
+  <div class="faq"><div class="q">Why did the layout change when I resized the panel?</div><div class="a">Check <strong>Fit to panel</strong>. When enabled, resizing changes the root layout size. When disabled, the fixed canvas remains the layout input.</div></div>
+  <div class="faq"><div class="q">Why did a newly created stylesheet not start working automatically?</div><div class="a">Unresolved paths are not watched because no file existed to watch. Reopen the preview after creating the file.</div></div>
+  <div class="tip"><span class="nt">KNOWN DIFFERENCES</span><p>Group C always exposes three renderer differences: browser versus Unity text metrics, wrapping-container height whose Unity rule is not identified, and main-axis percentages under an unsized parent where Yoga versions differ.</p></div>
+</section>
+
+<!-- COLOPHON -->
+<div class="endpage">
+  <div class="lg">UXML PREVIEW</div>
+  Version 0.0.1 · Generated 2026-08-09 · Audience: Unity developers new to this viewer<br>
+  Open this file in a browser. Use Ctrl+P and save as PDF for the print edition.
+</div>
+
+</div>
+</body>
+</html>

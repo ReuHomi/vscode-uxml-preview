@@ -70,3 +70,13 @@ describe('command entry points', () => {
     expect(mocks.open).toHaveBeenCalledWith(expect.anything(), uri, 2);
   });
 });
+
+describe('packaged documentation', () => {
+  it('pins both manual version labels to the package version', () => {
+    const packageJson = JSON.parse(readFileSync('package.json', 'utf8'));
+    const manual = readFileSync('docs/manual.html', 'utf8');
+
+    expect(manual.match(/<span class="chip">VERSION ([^<]+)<\/span>/)?.[1]).toBe(packageJson.version);
+    expect(manual.match(/^\s*Version ([^ ]+) · Generated/m)?.[1]).toBe(packageJson.version);
+  });
+});

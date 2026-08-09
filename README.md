@@ -67,7 +67,7 @@ for the cases, environment, tolerance, and exclusions.
 ## Open a preview
 
 For a concept-first walkthrough, open the self-contained
-[user manual](docs/manual.html) in a browser.
+[user manual](https://reuhomi.github.io/vscode-uxml-preview/manual.html) in a browser.
 
 With a `.uxml` file selected:
 
