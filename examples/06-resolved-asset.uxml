@@ -1,0 +1,7 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="06-resolved-asset.uss" />
+    <ui:VisualElement class="card">
+        <ui:Label text="Resolved asset: a cyan/orange checkerboard should appear below." />
+        <ui:VisualElement class="asset" />
+    </ui:VisualElement>
+</ui:UXML>

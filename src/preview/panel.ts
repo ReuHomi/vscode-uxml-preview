@@ -2,9 +2,11 @@
  * Purpose:  own the webview's lifetime and feed it finished render inputs.
  * Ensures:  every message sent is complete — the webview never asks for a file.
  */
+import os from 'node:os';
 import path from 'node:path';
 import * as vscode from 'vscode';
-import { collectImports, readStylesheet, watchTargets } from './imports';
+import { resolveAssetRoundTrip, type ResolvedAsset } from './assets';
+import { collectImports, readStylesheet, resolveStylesheetPath, watchTargets } from './imports';
 import { contentSecurityPolicy, nonce } from './csp';
 import type { RenderFailure, RenderRequest, WebviewMessage } from './protocol';
 
@@ -17,7 +19,9 @@ export class PreviewPanel implements vscode.Disposable {
 
   private readonly disposables: vscode.Disposable[] = [];
   private readonly watchDisposables: vscode.Disposable[] = [];
+  private readonly dist: vscode.Uri;
   private readonly key: string;
+  private lastRequest: RenderRequest | undefined;
   private refreshTimer: ReturnType<typeof setTimeout> | undefined;
   private disposed = false;
 
@@ -31,6 +35,7 @@ export class PreviewPanel implements vscode.Disposable {
     extensionUri: vscode.Uri,
   ) {
     this.key = uri.toString();
+    this.dist = vscode.Uri.joinPath(extensionUri, 'dist');
     this.disposables.push(
       panel.onDidDispose(() => this.release()),
       panel.webview.onDidReceiveMessage((message: WebviewMessage) => this.onMessage(message)),
@@ -57,12 +62,29 @@ export class PreviewPanel implements vscode.Disposable {
       background: var(--vscode-editor-background);
       border-top: 1px solid var(--vscode-panel-border);
     }
+    #warnings > details > summary { padding: 6px 10px; }
+    #warnings [data-group] { padding: 0 10px 6px; }
+    #warnings li { margin: 4px 0; }
+    .host-context { color: var(--vscode-descriptionForeground); }
+    .uxml-unsupported-control {
+      outline: 2px dashed var(--vscode-editorWarning-foreground);
+      outline-offset: -2px;
+    }
+    .uxml-unsupported-control[data-uxml-unsupported-count]::after {
+      content: attr(data-uxml-unsupported-count);
+      position: absolute;
+      top: 0;
+      right: 0;
+      padding: 0 4px;
+      background: var(--vscode-editorWarning-foreground);
+      color: var(--vscode-editor-background);
+    }
   </style>
 </head>
 <body>
   <div id="preview"></div>
   <aside id="warning-panel" aria-label="UXML preview warnings">
-    <ul id="warnings"></ul>
+    <div id="warnings"></div>
   </aside>
   <script type="module" nonce="${token}" src="${scriptUri}"></script>
 </body>
@@ -114,8 +136,8 @@ export class PreviewPanel implements vscode.Disposable {
   }
 
   private onMessage(message: WebviewMessage): void {
-    if (message.type !== 'ready') return;
-    this.runRender();
+    if (message.type === 'ready') this.runRender();
+    else this.runAssetRoundTrip(message.paths);
   }
 
   private runRender(): void {
@@ -125,6 +147,60 @@ export class PreviewPanel implements vscode.Disposable {
         void vscode.window.showErrorMessage(`UXML Preview: ${detail}`);
       }
     });
+  }
+
+  private runAssetRoundTrip(paths: readonly string[]): void {
+    void this.renderResolvedAssets(paths).catch((error: unknown) => {
+      if (!this.disposed) {
+        const detail = error instanceof Error ? error.message : String(error);
+        void vscode.window.showErrorMessage(`UXML Preview: ${detail}`);
+      }
+    });
+  }
+
+  private setAssetRoots(resourceRoots: readonly string[]): void {
+    this.panel.webview.options = {
+      ...this.panel.webview.options,
+      // vscode: asWebviewUri needs these roots; expose only folders of files that resolved.
+      localResourceRoots: [this.dist, ...resourceRoots.map((root) => vscode.Uri.file(root))],
+    };
+  }
+
+  private async resolveAsset(assetPath: string): Promise<ResolvedAsset | null> {
+    const config = vscode.workspace.getConfiguration('uxmlPreview', this.uri);
+    const filePath = resolveStylesheetPath(
+      assetPath,
+      this.uri.fsPath,
+      config.get<string>('projectRoot', ''),
+      vscode.workspace.getWorkspaceFolder(this.uri)?.uri.fsPath,
+    );
+    if (filePath === null) return null;
+
+    const directory = path.dirname(filePath);
+    if (directory === path.parse(directory).root || path.resolve(directory) === path.resolve(os.homedir())) return null;
+
+    const fileUri = vscode.Uri.file(filePath);
+    try {
+      const stat = await vscode.workspace.fs.stat(fileUri);
+      if ((stat.type & vscode.FileType.File) === 0) return null;
+      return { filePath, uri: this.panel.webview.asWebviewUri(fileUri).toString() };
+    } catch {
+      return null;
+    }
+  }
+
+  private async renderResolvedAssets(paths: readonly string[]): Promise<void> {
+    const request = this.lastRequest;
+    if (request === undefined || request.assetsResolved || this.disposed) return;
+
+    const claimed = { ...request, assetsResolved: true };
+    this.lastRequest = claimed;
+    const result = await resolveAssetRoundTrip(request, paths, (assetPath) => this.resolveAsset(assetPath));
+    if (result === null || this.disposed || this.lastRequest !== claimed) return;
+
+    this.setAssetRoots(result.resourceRoots);
+    this.lastRequest = result.request;
+    await this.panel.webview.postMessage(result.request);
   }
 
   private scheduleRender(): void {
@@ -179,13 +255,18 @@ export class PreviewPanel implements vscode.Disposable {
           width: config.get<number>('canvas.width', 1920),
           height: config.get<number>('canvas.height', 1080),
         },
+        projectRoot,
       );
 
       if (this.disposed) return;
+      this.lastRequest = request;
+      this.setAssetRoots([]);
       await this.panel.webview.postMessage(request);
       if (!this.disposed) this.replaceWatchers(watchTargets(this.uri.fsPath, importPaths));
     } catch (error: unknown) {
       if (this.disposed) return;
+      this.lastRequest = undefined;
+      this.setAssetRoots([]);
       this.replaceWatchers(watchTargets(this.uri.fsPath, []));
       const failure: RenderFailure = {
         type: 'render-error',
@@ -202,13 +283,14 @@ export class PreviewPanel implements vscode.Disposable {
  * Note the asymmetry between the two hooks, which is easy to miss: import URLs
  * are discovered by `parse()`, which the host can run itself because it needs
  * no DOM. Asset paths are only reached during painting, inside the webview.
- * They therefore cannot be prefetched the same way — Step 6 decides how, and
- * until then `assets` stays empty and unresolved paths surface as warnings.
+ * They therefore cannot be prefetched the same way. The first request leaves
+ * `assets` empty; one asset-misses round trip may fill it, and there is no third.
  */
 export async function buildRenderRequest(
   uxml: string,
   read: Parameters<typeof collectImports>[2],
   canvas: { width: number; height: number },
+  projectRoot: string,
 ): Promise<{ request: RenderRequest; importPaths: readonly string[] }> {
   const imports = await collectImports(uxml, undefined, read);
   return {
@@ -219,7 +301,9 @@ export async function buildRenderRequest(
       uss: undefined,
       imports: Object.fromEntries(imports.resolved),
       unresolvedImports: imports.unresolved,
+      projectRoot,
       assets: {},
+      assetsResolved: false,
       canvas,
       // Empty on purpose, and required so both future UI surfaces stay wired.
       // See AGENTS.md, ponytail exception 1. Step 7 adds active-state toggles;

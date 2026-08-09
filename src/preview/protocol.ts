@@ -13,8 +13,12 @@ export interface RenderRequest {
   readonly imports: Record<string, string>;
   /** Stylesheet URLs the host could not read. Kept separate from core warnings. */
   readonly unresolvedImports: readonly string[];
-  /** Asset path to a URI the webview may load. See Step 6. */
+  /** Current setting value, included so actionable diagnostics can explain resolution. */
+  readonly projectRoot: string;
+  /** Asset path to a webview URI resolved after the discovery render. */
   readonly assets: Record<string, string>;
+  /** False on discovery render, true after the one permitted asset round trip. */
+  readonly assetsResolved: boolean;
   readonly canvas: { readonly width: number; readonly height: number };
   /**
    * Pseudo-classes drawn as active on every element, e.g. `['hover']`.

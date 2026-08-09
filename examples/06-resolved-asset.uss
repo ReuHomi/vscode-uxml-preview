@@ -1,0 +1,14 @@
+.card {
+    width: 240px;
+    padding: 16px;
+    background-color: #20242b;
+    color: #ffffff;
+}
+
+.asset {
+    width: 192px;
+    height: 192px;
+    margin-top: 12px;
+    background-image: url("06-resolved-asset.png");
+    -unity-background-scale-mode: scale-to-fit;
+}
