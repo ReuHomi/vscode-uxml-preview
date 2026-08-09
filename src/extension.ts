@@ -1,10 +1,12 @@
-/**
- * Purpose:  register the two commands and nothing else.
- * Ensures:  no rendering, no parsing, no style logic lives in the host.
- */
 import * as vscode from 'vscode';
 import { PreviewPanel } from './preview/panel';
 
+/**
+ * Purpose:      register the two commands and nothing else.
+ * Deps/Effects: `context.subscriptions` owns both command registrations and
+ *               disposes them when the extension deactivates.
+ * Ensures:      no rendering, no parsing, no style logic lives in the host.
+ */
 export function activate(context: vscode.ExtensionContext): void {
   const open = (column: vscode.ViewColumn) => () => {
     const doc = vscode.window.activeTextEditor?.document;

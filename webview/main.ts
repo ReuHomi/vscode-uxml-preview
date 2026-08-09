@@ -1,35 +1,80 @@
 /**
  * Purpose:  render one document and report what could not be drawn.
  * Ensures:  both resolver hooks are pure lookups — nothing here waits on I/O.
- *
- * STEP 2 and STEP 5 own this file.
  */
+import { loadLayoutEngine, parse, render } from 'uxml-preview';
+import type { RenderResult } from 'uxml-preview';
 import type { HostMessage } from '../src/preview/protocol';
+import { warningLines, type WarningLine } from './warnings';
 
 declare function acquireVsCodeApi(): { postMessage(msg: unknown): void };
 const vscode = acquireVsCodeApi();
+const container = document.querySelector<HTMLElement>('#preview')!;
+const warningList = document.querySelector<HTMLUListElement>('#warnings')!;
+const layoutEngineReady = loadLayoutEngine();
+let current: RenderResult | undefined;
 
+function showWarnings(lines: readonly WarningLine[]): void {
+  warningList.replaceChildren(...lines.map(({ source, kind, message }) => {
+    const item = document.createElement('li');
+    item.textContent = `${source} [${kind}] ${message}`;
+    return item;
+  }));
+}
+
+/**
+ * Deps/Effects: owns the current RenderResult. Disposes it before replacement;
+ *               the unload listener below disposes the final result.
+ */
+async function renderMessage(msg: HostMessage): Promise<void> {
+  await layoutEngineReady;
+  current?.dispose();
+  current = undefined;
+
+  container.style.width = `${msg.canvas.width}px`;
+  container.style.height = `${msg.canvas.height}px`;
+  warningList.replaceChildren();
+
+  const assetMisses = new Set<string>();
+  const documentModel = parse(msg.uxml, msg.uss, {
+    resolveImport: (url) => msg.imports[url] ?? null,
+  });
+  const result = render(documentModel, container, {
+    size: msg.canvas,
+    activeStates: new Set(msg.activeStates),
+    states: msg.states,
+    resolveAsset: (path) => {
+      const uri = msg.assets[path];
+      if (uri === undefined) assetMisses.add(path);
+      return uri ?? null;
+    },
+  });
+  current = result;
+
+  showWarnings(warningLines(documentModel.warnings, result.warnings, msg.unresolvedImports));
+
+  vscode.postMessage({ type: 'asset-misses', paths: [...assetMisses] });
+}
+
+/**
+ * Deps/Effects: the webview window owns this listener until destruction; every
+ *               render routes through `renderMessage`, which owns Yoga cleanup.
+ */
 window.addEventListener('message', (event: MessageEvent<HostMessage>) => {
   const msg = event.data;
   if (msg.type !== 'render') return;
+  void renderMessage(msg).catch((error: unknown) => {
+    console.error(error);
+    warningList.replaceChildren();
+    const item = document.createElement('li');
+    item.textContent = `webview: ${error instanceof Error ? error.message : String(error)}`;
+    warningList.append(item);
+  });
+});
 
-  const assetMisses = new Set<string>();
-
-  // Both hooks are synchronous by the core's contract. That is why the host
-  // resolved everything first. Never try to read a file from in here.
-  const _resolveImport = (url: string): string | null => msg.imports[url] ?? null;
-  const _resolveAsset = (path: string): string | null => {
-    const uri = msg.assets[path];
-    if (uri === undefined) assetMisses.add(path);
-    return uri ?? null;
-  };
-
-  // Step 2: load the layout engine, render into the container, and surface
-  // every warning the core returns. Do not filter them.
-  throw new Error('Step 2: render here.');
-
-  // eslint-disable-next-line no-unreachable
-  vscode.postMessage({ type: 'asset-misses', paths: [...assetMisses] });
+window.addEventListener('unload', () => {
+  current?.dispose();
+  current = undefined;
 });
 
 vscode.postMessage({ type: 'ready' });

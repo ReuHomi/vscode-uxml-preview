@@ -15,6 +15,7 @@
  * Not our job: cycle detection. The core already guards imports with a `seen`
  * set. The round cap here is a cost ceiling, not a correctness device.
  */
+import path from 'node:path';
 import { parse } from 'uxml-preview';
 
 const MAX_ROUNDS = 16;
@@ -30,6 +31,57 @@ export interface ImportMap {
 
 /** Reads the text a URL stands for, or null. Async because the host can be. */
 export type ReadStylesheet = (url: string) => Promise<string | null>;
+
+const PROJECT_ASSETS_PREFIX = 'project://database/Assets/';
+const GUID_ONLY = /^(?:guid:\/\/)?[0-9a-f]{32}$/i;
+
+/**
+ * Purpose:      resolve only the path forms Step 2 has evidence for.
+ * Ensures:      project URLs use the project root; relative URLs use the UXML
+ *               directory; GUID-only and unknown schemes stay unresolved.
+ */
+export function resolveStylesheetPath(
+  url: string,
+  uxmlPath: string,
+  projectRoot: string | undefined,
+  workspaceRoot: string | undefined,
+): string | null {
+  const query = url.indexOf('?');
+  const bare = query === -1 ? url : url.slice(0, query);
+
+  if (GUID_ONLY.test(bare)) return null;
+
+  if (bare.startsWith(PROJECT_ASSETS_PREFIX)) {
+    const root = projectRoot || workspaceRoot;
+    return root === undefined
+      ? null
+      : path.resolve(root, 'Assets', bare.slice(PROJECT_ASSETS_PREFIX.length));
+  }
+
+  if (/^[a-z][a-z0-9+.-]*:/i.test(bare)) return null;
+  return path.resolve(path.dirname(uxmlPath), bare);
+}
+
+/**
+ * Deps/Effects: calls the injected filesystem reader once for a resolvable URL.
+ * Ensures:      unresolved paths and filesystem failures both return null.
+ */
+export async function readStylesheet(
+  url: string,
+  uxmlPath: string,
+  projectRoot: string | undefined,
+  workspaceRoot: string | undefined,
+  readFile: (path: string) => Promise<string>,
+): Promise<string | null> {
+  const resolved = resolveStylesheetPath(url, uxmlPath, projectRoot, workspaceRoot);
+  if (resolved === null) return null;
+
+  try {
+    return await readFile(resolved);
+  } catch {
+    return null;
+  }
+}
 
 export async function collectImports(
   uxml: string,
