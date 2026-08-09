@@ -6,9 +6,15 @@ import os from 'node:os';
 import path from 'node:path';
 import * as vscode from 'vscode';
 import { resolveAssetRoundTrip, type GuidIndexCache, type ResolvedAsset } from './assets';
-import { collectImports, readStylesheet, resolveStylesheetPath, watchTargets } from './imports';
+import {
+  collectImports,
+  packageCacheNotSearched,
+  readStylesheet,
+  resolveStylesheetPath,
+  watchTargets,
+} from './imports';
 import { contentSecurityPolicy, nonce } from './csp';
-import type { RenderFailure, RenderRequest, WebviewMessage } from './protocol';
+import type { AssetDiagnostic, RenderFailure, RenderRequest, WebviewMessage } from './protocol';
 import { suggestUnityProjectRoot } from './unity-project';
 
 const decoder = new TextDecoder();
@@ -518,6 +524,20 @@ export async function buildRenderRequest(
   suggestedRoot: string | null = null,
 ): Promise<{ request: RenderRequest; importPaths: readonly string[] }> {
   const imports = await collectImports(uxml, undefined, read);
+  const assetDiagnostics: AssetDiagnostic[] = suggestedRoot === null ? [] : [{
+    source: 'host',
+    kind: 'project-root-suggested',
+    message: `uxmlPreview.projectRoot is empty. This file appears to be inside a Unity project at ${suggestedRoot}. Set uxmlPreview.projectRoot to that path in Settings.`,
+  }];
+  for (const url of imports.unresolved) {
+    const packageNote = packageCacheNotSearched(url);
+    if (packageNote !== null) assetDiagnostics.push({
+      source: 'host',
+      kind: 'package-cache-skipped',
+      message: `Could not resolve ${url} under Packages/. ${packageNote}`,
+      path: url,
+    });
+  }
   return {
     importPaths: imports.paths,
     request: {
@@ -527,11 +547,7 @@ export async function buildRenderRequest(
       imports: Object.fromEntries(imports.resolved),
       unresolvedImports: imports.unresolved,
       projectRoot,
-      assetDiagnostics: suggestedRoot === null ? [] : [{
-        source: 'host',
-        kind: 'project-root-suggested',
-        message: `uxmlPreview.projectRoot is empty. This file appears to be inside a Unity project at ${suggestedRoot}. Set uxmlPreview.projectRoot to that path in Settings.`,
-      }],
+      assetDiagnostics,
       assets: {},
       assetsResolved: false,
       canvas: { width: canvas.width, height: canvas.height },

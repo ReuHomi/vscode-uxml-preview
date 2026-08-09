@@ -12,6 +12,7 @@ import {
 
 const GUID = '0123456789abcdef0123456789abcdef';
 const MOVED = `project://database/Assets/UI/icon.png?fileID=2800000&guid=${GUID}`;
+const DEBUG_PACKAGE = 'project://database/Packages/com.annulusgames.debug-ui/Package%20Resources/Debug%20UI.uss?fileID=7433441132597879392&guid=e9f02f385e5b745d8aa12c1ffa8e5e8&type=3#Debug UI';
 const temporaryRoots: string[] = [];
 
 function request(projectRoot = ''): RenderRequest {
@@ -52,6 +53,22 @@ const resolved = (filePath: string): ResolvedAsset => ({
 });
 
 describe('resolveAssetRoundTrip', () => {
+  it('explains that an unresolved package asset was not searched in PackageCache', async () => {
+    const result = await resolveAssetRoundTrip(request('C:\\project'), [DEBUG_PACKAGE], {
+      cache: {},
+      projectRoot: 'C:\\project',
+      resolvePath: async () => null,
+      resolveIndexedPath: async () => null,
+      buildGuidIndex: async () => new Map(),
+    });
+
+    expect(result!.request.assets).toEqual({});
+    expect(result!.request.assetDiagnostics).toContainEqual(expect.objectContaining({
+      kind: 'package-cache-skipped',
+      message: expect.stringContaining('Library/PackageCache is not searched'),
+    }));
+  });
+
   it('does not build an index when the written path resolves', async () => {
     let builds = 0;
     const direct = resolved(path.join('C:\\project', 'Assets', 'UI', 'icon.png'));

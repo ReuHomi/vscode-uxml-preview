@@ -8,6 +8,7 @@ import type { AssetDiagnostic, HostMessage, RenderRequest } from '../src/preview
 import {
   diagnosticGroups,
   warningLines,
+  type DiagnosticItem,
   type DivergenceLine,
   type WarningLine,
 } from './warnings';
@@ -64,6 +65,28 @@ function diagnosticItem(
   return item;
 }
 
+function actionableItem(
+  item: DiagnosticItem,
+  projectRoot: string,
+  documentModel: UxmlDocument | undefined,
+): HTMLLIElement {
+  const [primary, ...context] = item.lines;
+  const element = diagnosticItem(primary!, projectRoot, documentModel);
+  for (const line of context) {
+    const host = document.createElement('div');
+    host.className = 'host-context';
+    host.textContent = `${line.source} [${line.kind}] ${line.message}`;
+    element.append(host);
+  }
+  if (item.occurrences > 1) {
+    const count = document.createElement('div');
+    count.className = 'host-context';
+    count.textContent = `host: referenced in ${item.occurrences} places`;
+    element.append(count);
+  }
+  return element;
+}
+
 function showDiagnostics(
   lines: readonly WarningLine[],
   projectRoot: string,
@@ -73,7 +96,10 @@ function showDiagnostics(
   canvas?: { readonly width: number; readonly height: number },
 ): void {
   const groups = diagnosticGroups(lines, assetDiagnostics);
-  const issueCount = lines.length + assetDiagnostics.length + (failure === undefined ? 0 : 1);
+  const issueCount = groups.A.length
+    + groups.B.length
+    + groups.C.filter(({ source }) => source !== 'known-divergence').length
+    + (failure === undefined ? 0 : 1);
   const outer = document.createElement('details');
   outer.open = issueCount > 0;
   const summary = document.createElement('summary');
@@ -103,7 +129,12 @@ function showDiagnostics(
       item.textContent = `host [render-error] ${failure}`;
       list.append(item);
     }
-    list.append(...group.map((line) => diagnosticItem(line, projectRoot, documentModel)));
+    if (key === 'A') {
+      list.append(...groups.A.map((item) => actionableItem(item, projectRoot, documentModel)));
+    } else {
+      const linesInGroup = key === 'B' ? groups.B : groups.C;
+      list.append(...linesInGroup.map((line) => diagnosticItem(line, projectRoot, documentModel)));
+    }
     section.append(heading, list);
     outer.append(section);
   }
@@ -192,7 +223,7 @@ async function renderMessage(msg: HostMessage): Promise<void> {
 
   markUnsupportedControls(result.warnings, result);
   showDiagnostics(
-    warningLines(documentModel.warnings, result.warnings, msg.unresolvedImports),
+    warningLines(documentModel.warnings, result.warnings, msg.unresolvedImports, [...assetMisses]),
     msg.projectRoot,
     msg.assetDiagnostics,
     documentModel,

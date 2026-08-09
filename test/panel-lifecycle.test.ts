@@ -82,7 +82,7 @@ vi.mock('vscode', () => {
 });
 
 import * as vscode from 'vscode';
-import { PreviewPanel } from '../src/preview/panel';
+import { buildRenderRequest, PreviewPanel } from '../src/preview/panel';
 
 const request: RenderRequest = {
   type: 'render',
@@ -135,6 +135,23 @@ describe('PreviewPanel webview reloads', () => {
     preview.setAssetRoots([]);
 
     expect(mocks.optionWrites).toBe(0);
+  });
+});
+
+describe('buildRenderRequest diagnostics', () => {
+  it('explains that an unresolved package import was not searched in PackageCache', async () => {
+    const url = 'project://database/Packages/com.annulusgames.debug-ui/Package%20Resources/Debug%20UI.uss?fileID=7433441132597879392&guid=e9f02f385e5b745d8aa12c1ffa8e5e8&type=3#Debug UI';
+    const { request: built } = await buildRenderRequest(
+      `<ui:UXML xmlns:ui="UnityEngine.UIElements"><Style src="${url.replaceAll('&', '&amp;')}" /></ui:UXML>`,
+      async () => null,
+      { width: 100, height: 100, fitToPanel: false },
+      'C:\\project',
+    );
+
+    expect(built.assetDiagnostics).toContainEqual(expect.objectContaining({
+      kind: 'package-cache-skipped',
+      message: expect.stringContaining('Library/PackageCache is not searched'),
+    }));
   });
 });
 

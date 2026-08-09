@@ -97,3 +97,89 @@ property warning somewhere in its causal path. `MySpecialButton-template.uxml`
 was the only sample with no A/B entries; its asset resolved and all boxes were
 finite. Pixel comparison against Unity was not available, so subtler silent
 differences remain unclassified rather than being asserted away.
+
+## Step 8.5 path-resolution rerun
+
+The same 14-file happy-dom observation was repeated after adding the path
+forms seen above. Import failures fell from **31 to 27** while their diagnostic
+lines fell from **62 to 54**. Asset failure occurrences fell from **27 to 10**.
+After path-keyed grouping, those 10 asset occurrences occupy eight items. The
+panel now shows **35 A items** for 35 distinct failed paths; their preserved
+core and host information occupies 65 displayed lines.
+
+- The eight removed import lines were the two `%20`-encoded World at War
+  stylesheets, each observed through both the core and host warning sources in
+  two UXML files.
+- The 17 removed asset occurrences were the resolvable `%20` and `/Assets/`
+  paths.
+- The 54 remaining import lines describe 26 transitive relative import
+  failures and one Debug UI package failure. Each failure keeps its separate
+  core and host text inside one path-keyed item. The latter is not present under
+  this sample's `Packages/` tree, and `Library/PackageCache` is deliberately not
+  searched.
+- The ten remaining asset occurrences are seven inline-style URLs that still
+  reach the hook with XML entities (three in `MyGameUI`, four in `MessageBox`)
+  and three Design System Showcase occurrences. Repeated paths reduce these to
+  eight path-keyed items.
+
+## Core issue — give `resolveImport` the importing stylesheet URL
+
+Filed as [`ReuHomi/uxml-preview#1`](https://github.com/ReuHomi/uxml-preview/issues/1).
+
+**Title:** Pass the importing stylesheet URL to `resolveImport`
+
+**Body:**
+
+`resolveImport` currently receives only the requested URL. That is sufficient
+for a `<Style src>` reference, but not for a relative `@import`: `a.uss` importing
+`"b.uss"` means `b.uss` is relative to `a.uss`, not to the UXML document.
+
+This was reproduced with two files from the Step 8 external corpus:
+`ThemePreview.uxml` and `DesignSystemShowcase.uxml`. Both load
+`DesignSystem.uss`, whose 13 sibling relative imports then fail. That is 26
+failed imports across the two files. They occupy 26 A items and retain 52
+diagnostic lines because the VS Code preview preserves both the core and host
+information inside each item.
+
+The extension cannot infer the base safely from request order, and parsing a
+warning message would make prose into an API. Suggested backward-compatible
+shape:
+
+```ts
+resolveImport?: (url: string, from: string | null) => string | null;
+```
+
+`from` is the URL of the stylesheet containing this import. It is `null` for a
+stylesheet referenced directly by `<Style src>`. Existing one-argument
+callbacks remain valid TypeScript and JavaScript implementations.
+
+Acceptance: nested relative imports resolve against the URL of their containing
+stylesheet; direct `<Style src>` calls receive `from === null`; existing
+one-argument resolvers continue to work.
+
+## Core issue — decode XML entities in inline-style asset URLs
+
+Filed as [`ReuHomi/uxml-preview#2`](https://github.com/ReuHomi/uxml-preview/issues/2).
+
+**Title:** Decode XML entities before passing inline-style asset URLs to `resolveAsset`
+
+**Body:**
+
+Asset URLs extracted from an inline UXML `style` attribute reach
+`resolveAsset` with their XML source spelling intact. For example, the hook
+receives a value wrapped in `&apos;` whose query uses `&amp;`. In the same parser,
+URLs from `<Style src>` are already entity-decoded before their resolver hook is
+called.
+
+This was reproduced in two Step 8 files: three URLs in `MyGameUI.uxml` and four
+in `MessageBox-template.uxml`. After the extension learned `%20` paths, all
+seven still produced `asset-unresolved`, while neighbouring plain URLs against
+the same copied asset tree resolved.
+
+The extension cannot safely decode this after parsing: it no longer knows which
+ampersands came from entities and which were literal URL data. Decoding belongs
+at the parser boundary, before calling the hook.
+
+Acceptance: inline `style="...url(&apos;...?...&amp;...&apos;)..."` reaches
+`resolveAsset` as the same decoded URL that an equivalent USS declaration would
+provide, without changing literal ampersands that are valid URL content.

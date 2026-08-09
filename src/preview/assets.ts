@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { buildGuidIndex } from 'uxml-preview/unity-project';
 import type { GuidIndex } from 'uxml-preview/unity-project';
+import { packageCacheNotSearched } from './imports';
 import type { AssetDiagnostic, RenderRequest } from './protocol';
 
 export interface ResolvedAsset {
@@ -34,8 +35,8 @@ function assetGuid(reference: string): string | null {
   }
 }
 
-function diagnostic(kind: AssetDiagnostic['kind'], message: string): AssetDiagnostic {
-  return { source: 'host', kind, message };
+function diagnostic(kind: AssetDiagnostic['kind'], message: string, assetPath?: string): AssetDiagnostic {
+  return { source: 'host', kind, message, ...(assetPath === undefined ? {} : { path: assetPath }) };
 }
 
 export async function resolveAssetRoundTrip(
@@ -55,6 +56,14 @@ export async function resolveAssetRoundTrip(
       assets[assetPath] = resolved.uri;
       resourceRoots.add(path.dirname(resolved.filePath));
       continue;
+    }
+    const packageNote = packageCacheNotSearched(assetPath);
+    if (packageNote !== null) {
+      diagnostics.push(diagnostic(
+        'package-cache-skipped',
+        `Could not resolve ${assetPath} under Packages/. ${packageNote}`,
+        assetPath,
+      ));
     }
     const guid = assetGuid(assetPath);
     if (guid !== null) unresolved.push({ reference: assetPath, guid });
@@ -84,6 +93,7 @@ export async function resolveAssetRoundTrip(
         diagnostics.push(diagnostic(
           'guid-unresolved',
           `Could not resolve ${reference} after searching ${count}. Check the GUID and uxmlPreview.projectRoot.`,
+          reference,
         ));
         continue;
       }
@@ -92,6 +102,7 @@ export async function resolveAssetRoundTrip(
       diagnostics.push(diagnostic(
         'asset-path-stale',
         `The written asset path could not be found, but its GUID resolved. The UXML/USS path is stale: ${reference} -> ${resolved.filePath}`,
+        reference,
       ));
     }
   }

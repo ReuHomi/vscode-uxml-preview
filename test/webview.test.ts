@@ -81,6 +81,7 @@ describe('warningLines', () => {
           source: 'host',
           kind: 'import-unresolved',
           message: 'Unresolved stylesheet: missing.uss. It is not watched; reopen the preview after the file is created.',
+          path: 'missing.uss',
         },
       ]);
   });
@@ -135,6 +136,22 @@ describe('webview render messages', () => {
     expect(latestAssetMisses()).toEqual({
       type: 'asset-misses',
       paths: ['project://database/Assets/UI/missing.png?fileID=2800000&guid=abc123'],
+    });
+  });
+
+  it('counts one import problem while preserving both core and host text', async () => {
+    const message = {
+      ...request('<ui:UXML xmlns:ui="UnityEngine.UIElements"><Style src="missing.uss" /></ui:UXML>'),
+      unresolvedImports: ['missing.uss'],
+    } satisfies RenderRequest;
+    window.dispatchEvent(new MessageEvent('message', { data: message }));
+
+    await vi.waitFor(() => {
+      const action = document.querySelector<HTMLElement>('#warnings [data-group="A"]')!;
+      expect(action.querySelector('summary')!.textContent).toBe('Fixable (1)');
+      expect(document.querySelector<HTMLElement>('#warnings > details > summary')!.textContent).toBe('1 issue');
+      expect(action.innerText).toContain('<Style src="missing.uss"> could not be resolved');
+      expect(action.innerText).toContain('Unresolved stylesheet: missing.uss. It is not watched; reopen the preview after the file is created.');
     });
   });
 

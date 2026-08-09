@@ -40,12 +40,35 @@ export interface StylesheetSource {
 export type ReadStylesheet = (url: string) => Promise<StylesheetSource | null>;
 
 const PROJECT_ASSETS_PREFIX = 'project://database/Assets/';
+const PROJECT_PACKAGES_PREFIX = 'project://database/Packages/';
+const ROOT_ASSETS_PREFIX = '/Assets/';
+const PACKAGES_PREFIX = 'Packages/';
 const GUID_ONLY = /^(?:guid:\/\/)?[0-9a-f]{32}$/i;
 
+function barePath(url: string): string {
+  const end = [url.indexOf('?'), url.indexOf('#')]
+    .filter((index) => index !== -1)
+    .reduce((first, index) => Math.min(first, index), url.length);
+  const bare = url.slice(0, end);
+  try {
+    return decodeURIComponent(bare);
+  } catch {
+    // A malformed escape is still a possible literal filename; let the filesystem reject it.
+    return bare;
+  }
+}
+
+export function packageCacheNotSearched(url: string): string | null {
+  const bare = barePath(url);
+  return bare.startsWith(PROJECT_PACKAGES_PREFIX) || bare.startsWith(PACKAGES_PREFIX)
+    ? 'Packages/ was checked. Library/PackageCache is not searched.'
+    : null;
+}
+
 /**
- * Purpose:      resolve only the path forms Step 2 has evidence for.
- * Ensures:      project URLs use the project root; relative URLs use the UXML
- *               directory; GUID-only and unknown schemes stay unresolved.
+ * Purpose:      resolve the Unity path forms observed in real projects.
+ * Ensures:      project-root paths use the project root; relative URLs use the
+ *               UXML directory; GUID-only and unknown schemes stay unresolved.
  */
 export function resolveStylesheetPath(
   url: string,
@@ -53,16 +76,31 @@ export function resolveStylesheetPath(
   projectRoot: string | undefined,
   workspaceRoot: string | undefined,
 ): string | null {
-  const query = url.indexOf('?');
-  const bare = query === -1 ? url : url.slice(0, query);
+  const bare = barePath(url);
+  const root = projectRoot || workspaceRoot;
 
   if (GUID_ONLY.test(bare)) return null;
 
   if (bare.startsWith(PROJECT_ASSETS_PREFIX)) {
-    const root = projectRoot || workspaceRoot;
     return root === undefined
       ? null
       : path.resolve(root, 'Assets', bare.slice(PROJECT_ASSETS_PREFIX.length));
+  }
+
+  if (bare.startsWith(ROOT_ASSETS_PREFIX)) {
+    return root === undefined
+      ? null
+      : path.resolve(root, 'Assets', bare.slice(ROOT_ASSETS_PREFIX.length));
+  }
+
+  if (bare.startsWith(PROJECT_PACKAGES_PREFIX)) {
+    return root === undefined
+      ? null
+      : path.resolve(root, 'Packages', bare.slice(PROJECT_PACKAGES_PREFIX.length));
+  }
+
+  if (bare.startsWith(PACKAGES_PREFIX)) {
+    return root === undefined ? null : path.resolve(root, bare);
   }
 
   if (/^[a-z][a-z0-9+.-]*:/i.test(bare)) return null;
