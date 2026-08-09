@@ -16,9 +16,15 @@
       { "command": "uxmlPreview.showPreview", "title": "UXML Preview: Open Preview", "icon": "$(open-preview)" },
       { "command": "uxmlPreview.showPreviewToSide", "title": "UXML Preview: Open Preview to the Side", "icon": "$(open-preview)" }
     ],
+    "keybindings": [
+      { "command": "uxmlPreview.showPreviewToSide", "key": "ctrl+shift+v", "mac": "cmd+shift+v", "when": "resourceExtname == .uxml" }
+    ],
     "menus": {
       "editor/title": [
         { "command": "uxmlPreview.showPreviewToSide", "when": "resourceExtname == .uxml", "group": "navigation" }
+      ],
+      "explorer/context": [
+        { "command": "uxmlPreview.showPreviewToSide", "when": "resourceExtname == .uxml" }
       ]
     },
     "configuration": {

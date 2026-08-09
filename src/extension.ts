@@ -8,13 +8,21 @@ import { PreviewPanel } from './preview/panel';
  * Ensures:      no rendering, no parsing, no style logic lives in the host.
  */
 export function activate(context: vscode.ExtensionContext): void {
-  const open = (column: vscode.ViewColumn) => () => {
+  const open = (column: vscode.ViewColumn) => (resource?: vscode.Uri) => {
     const doc = vscode.window.activeTextEditor?.document;
-    if (doc === undefined || !doc.fileName.endsWith('.uxml')) {
+    const uri = resource ?? doc?.uri;
+    const fileName = resource?.fsPath ?? doc?.fileName;
+    if (fileName?.endsWith('.uss')) {
+      void vscode.window.showInformationMessage(
+        'A USS file cannot be rendered on its own. In Unity UI Toolkit, a stylesheet only takes effect when attached to a document. Open a .uxml file that references this stylesheet with <Style src>.',
+      );
+      return;
+    }
+    if (uri === undefined || fileName === undefined || !fileName.endsWith('.uxml')) {
       void vscode.window.showInformationMessage('Open a .uxml file first.');
       return;
     }
-    PreviewPanel.open(context, doc.uri, column);
+    PreviewPanel.open(context, uri, column);
   };
 
   context.subscriptions.push(

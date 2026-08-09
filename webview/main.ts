@@ -70,13 +70,17 @@ function showDiagnostics(
   assetDiagnostics: readonly AssetDiagnostic[] = [],
   documentModel?: UxmlDocument,
   failure?: string,
+  canvas?: { readonly width: number; readonly height: number },
 ): void {
   const groups = diagnosticGroups(lines, assetDiagnostics);
   const issueCount = lines.length + assetDiagnostics.length + (failure === undefined ? 0 : 1);
   const outer = document.createElement('details');
   outer.open = issueCount > 0;
   const summary = document.createElement('summary');
-  summary.textContent = `${issueCount} ${issueCount === 1 ? 'issue' : 'issues'}`;
+  const divergenceCount = groups.C.filter(({ source }) => source === 'known-divergence').length;
+  summary.textContent = canvas !== undefined && issueCount === 0
+    ? `${canvas.width} × ${canvas.height} · ${groups.B.length} unsupported · ${divergenceCount} known divergences`
+    : `${issueCount} ${issueCount === 1 ? 'issue' : 'issues'}`;
   outer.append(summary);
 
   const definitions = [
@@ -192,6 +196,8 @@ async function renderMessage(msg: HostMessage): Promise<void> {
     msg.projectRoot,
     msg.assetDiagnostics,
     documentModel,
+    undefined,
+    canvas,
   );
 
   vscode.postMessage({ type: 'asset-misses', paths: [...assetMisses] });

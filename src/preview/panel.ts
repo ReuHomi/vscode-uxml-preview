@@ -9,6 +9,7 @@ import { resolveAssetRoundTrip, type GuidIndexCache, type ResolvedAsset } from '
 import { collectImports, readStylesheet, resolveStylesheetPath, watchTargets } from './imports';
 import { contentSecurityPolicy, nonce } from './csp';
 import type { RenderFailure, RenderRequest, WebviewMessage } from './protocol';
+import { suggestUnityProjectRoot } from './unity-project';
 
 const decoder = new TextDecoder();
 const SAVE_DEBOUNCE_MS = 75;
@@ -453,6 +454,14 @@ export class PreviewPanel implements vscode.Disposable {
       const config = vscode.workspace.getConfiguration('uxmlPreview', this.uri);
       const projectRoot = config.get<string>('projectRoot', '');
       const workspaceRoot = vscode.workspace.getWorkspaceFolder(this.uri)?.uri.fsPath;
+      const suggestedRoot = await suggestUnityProjectRoot(this.uri.fsPath, projectRoot, async (candidate) => {
+        try {
+          const stat = await vscode.workspace.fs.stat(vscode.Uri.file(candidate));
+          return (stat.type & vscode.FileType.Directory) !== 0;
+        } catch {
+          return false;
+        }
+      });
       const { request, importPaths } = await buildRenderRequest(
         uxml,
         (url) => readStylesheet(
@@ -469,6 +478,7 @@ export class PreviewPanel implements vscode.Disposable {
         },
         projectRoot,
         this.activeStates,
+        suggestedRoot,
       );
 
       if (this.disposed) return;
@@ -505,6 +515,7 @@ export async function buildRenderRequest(
   canvas: { width: number; height: number; fitToPanel: boolean },
   projectRoot: string,
   activeStates: readonly string[] = [],
+  suggestedRoot: string | null = null,
 ): Promise<{ request: RenderRequest; importPaths: readonly string[] }> {
   const imports = await collectImports(uxml, undefined, read);
   return {
@@ -516,7 +527,11 @@ export async function buildRenderRequest(
       imports: Object.fromEntries(imports.resolved),
       unresolvedImports: imports.unresolved,
       projectRoot,
-      assetDiagnostics: [],
+      assetDiagnostics: suggestedRoot === null ? [] : [{
+        source: 'host',
+        kind: 'project-root-suggested',
+        message: `uxmlPreview.projectRoot is empty. This file appears to be inside a Unity project at ${suggestedRoot}. Set uxmlPreview.projectRoot to that path in Settings.`,
+      }],
       assets: {},
       assetsResolved: false,
       canvas: { width: canvas.width, height: canvas.height },

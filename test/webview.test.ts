@@ -547,7 +547,8 @@ describe('webview render messages', () => {
 
     await vi.waitFor(() => {
       const outer = document.querySelector<HTMLDetailsElement>('#warnings > details')!;
-      expect(outer.querySelector(':scope > summary')!.textContent).toBe('0 issues');
+      expect(outer.querySelector(':scope > summary')!.textContent)
+        .toBe('1920 × 1080 · 0 unsupported · 3 known divergences');
       expect(outer.open).toBe(false);
       expect(outer.querySelector('[data-group="C"] summary')!.textContent)
         .toBe('Renderer differences from Unity (3)');
