@@ -7,6 +7,13 @@ it includes the sampled UXML, its directly referenced USS, the asset paths used
 to distinguish resolver failures from absent files, and the applicable licence.
 It is not a vendored copy of each Unity project.
 
+The first collection copied UXML, the stylesheets needed to open it, and image
+files referenced directly by URL. That missed assets reached indirectly through
+`resource()`. On 2026-08-15 the design-system sample was expanded with the 120
+SVG files from `Assets/DesignSystem/Resources/Textures/Icons/` at the same
+pinned commit. They are copied byte-for-byte; the rest of each source project
+remains selective.
+
 For `project://database/Assets/...` references, set `uxmlPreview.projectRoot`
 to the source folder (`examples/external/<source>`). Some failures below are the
 point of the sample, so do not rewrite paths to make them render.
@@ -24,7 +31,8 @@ point of the sample, so do not rewrite paths to make them render.
 
 ## Sample manifest
 
-Every entry was collected on 2026-08-09 and was not modified.
+The original entries were collected on 2026-08-09; the 120-icon row was added
+on 2026-08-15. No copied source file was modified.
 
 | Local file | Original URL | Licence | Why it is here |
 |---|---|---|---|
@@ -41,6 +49,7 @@ Every entry was collected on 2026-08-09 and was not modified.
 | `debug-ui/sandbox/DebugUI.Sandbox/Assets/Sandbox/UXML/UXMLSandbox.uxml` | [original](https://github.com/annulusgames/DebugUI/blob/eadce6b0604ad8a5a06117751eeae7de2d64707b/sandbox/DebugUI.Sandbox/Assets/Sandbox/UXML/UXMLSandbox.uxml) | MIT | Package stylesheet plus editor-style fields and custom controls. |
 | `design-system/Assets/DesignSystem/Editor/Theme/ThemePreview.uxml` | [original](https://github.com/sinanata/unity-ui-toolkit-design-system/blob/76e4bb000e2378bb8bc5cb50ceca95570cad35ac/Assets/DesignSystem/Editor/Theme/ThemePreview.uxml) | MIT | Large editor preview with nested stylesheet imports and many control families. |
 | `design-system/Assets/Showcase/Resources/DesignSystemShowcase.uxml` | [original](https://github.com/sinanata/unity-ui-toolkit-design-system/blob/76e4bb000e2378bb8bc5cb50ceca95570cad35ac/Assets/Showcase/Resources/DesignSystemShowcase.uxml) | MIT | Large runtime showcase: more than a thousand rendered model elements. |
+| `design-system/Assets/DesignSystem/Resources/Textures/Icons/*.svg` (120 files) | [original directory](https://github.com/sinanata/unity-ui-toolkit-design-system/tree/76e4bb000e2378bb8bc5cb50ceca95570cad35ac/Assets/DesignSystem/Resources/Textures/Icons) | MIT | Project resources omitted by the first URL-only asset collection; required to observe `resource()` honestly. |
 | `uitoolkit-helpers/Scripts/AspectRatioPadding/Sample.uxml` | [original](https://github.com/spaghettioh/UIToolkitHelpers/blob/8fac81337c5929010c84d8038160fe3406b7137c/Scripts/AspectRatioPadding/Sample.uxml) | Unlicense | Minimal hand-written custom container with visible child colours. |
 
 ## Rejected source
