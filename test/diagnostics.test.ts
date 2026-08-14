@@ -128,23 +128,42 @@ describe('diagnostic groups', () => {
     }));
   });
 
-  it('places an unavailable project resource and its core warning in C', () => {
-    const path = 'console.warnicon';
+  it('places a missing project resource and its core warning in A', () => {
+    const path = 'missing';
     const groups = diagnosticGroups([{
       source: 'render',
       kind: 'asset-unresolved',
       message: `background-image resource('${path}') was not resolved`,
       path,
-      assetForm: 'resource',
     }], [{
       source: 'host',
-      kind: 'resource-unavailable',
-      message: 'No project Resources match; this may be an Editor built-in.',
+      kind: 'resource-unresolved',
+      message: 'Searched 2 Resources folders and did not find missing.',
+      path,
+    }], []);
+
+    expect(groups.A).toHaveLength(1);
+    expect(groups.A[0]!.lines.map(({ kind }) => kind)).toEqual(['asset-unresolved', 'resource-unresolved']);
+    expect(groups.C).toEqual([]);
+  });
+
+  it('places a found but unsupported resource in B', () => {
+    const path = 'data';
+    const groups = diagnosticGroups([{
+      source: 'render',
+      kind: 'asset-unresolved',
+      message: 'background-image: data was not resolved',
+      path,
+    }], [{
+      source: 'host',
+      kind: 'resource-unsupported',
+      message: 'Found data.asset but its format is unsupported.',
       path,
     }], []);
 
     expect(groups.A).toEqual([]);
-    expect(groups.C.map(({ kind }) => kind)).toEqual(['asset-unresolved', 'resource-unavailable']);
+    expect(groups.B.map(({ kind }) => kind)).toEqual(['asset-unresolved', 'resource-unsupported']);
+    expect(groups.C).toEqual([]);
   });
 
   it('rejects warning kinds outside the core union at type-check time', () => {

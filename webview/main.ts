@@ -48,9 +48,7 @@ function diagnosticItem(
 
   if (line.source !== 'known-divergence') {
     let context: string | undefined;
-    if (line.kind === 'import-unresolved' || (
-      line.kind === 'asset-unresolved' && (!('assetForm' in line) || line.assetForm !== 'resource')
-    )) {
+    if (line.kind === 'import-unresolved' || line.kind === 'asset-unresolved') {
       context = projectRoot === ''
         ? 'host: uxmlPreview.projectRoot is empty. Set it in Settings to the Unity project root.'
         : `host: uxmlPreview.projectRoot = ${projectRoot}`;

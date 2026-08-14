@@ -67,7 +67,7 @@ export function assetKey(path: string, form: AssetForm): string {
 
 export interface AssetDiagnostic {
   readonly source: 'host';
-  readonly kind: 'guid-index' | 'guid-index-skipped' | 'asset-path-stale' | 'guid-unresolved' | 'project-root-suggested' | 'package-cache-skipped' | 'resource-ambiguous' | 'resource-unavailable';
+  readonly kind: 'guid-index' | 'guid-index-skipped' | 'asset-path-stale' | 'guid-unresolved' | 'project-root-suggested' | 'package-cache-skipped' | 'resource-ambiguous' | 'resource-unresolved' | 'resource-unsupported';
   readonly message: string;
   /** Failed path this explains. No path means panel-wide host information. */
   readonly path?: string;

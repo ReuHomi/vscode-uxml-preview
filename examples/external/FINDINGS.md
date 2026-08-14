@@ -157,6 +157,64 @@ beyond four canvas widths or heights. The wrapping container's
 `flex-direction`, `flex-wrap`, and padding come from the document's inline
 style, so opening the nested stylesheets exposed the intended tall layout.
 
+## `resource()` project lookup rerun
+
+The same 14 files were observed after adding a lazy index of every `Resources`
+folder below the configured project's `Assets` tree. The previously surfaced
+**419-occurrence** `resource()` cohort split into **0 resolved project assets**
+and **419 references with no matching project Resources asset**. ThemePreview
+accounts for 177 and Showcase for 242. Including the three pre-existing
+`resource('sinanata')` occurrences gives 422 total `resource()` calls, all with
+no project match. The selective external corpus contains no matching image
+files under its Resources folders, so zero resolutions is consistent with the
+files present rather than evidence that the lookup path was skipped.
+
+The unmatched references are classified in C, not B: after an exhaustive
+project Resources lookup, an Editor built-in resource is a live possibility,
+but the extension cannot possess Unity Editor's private resource files and no
+future core rendering support can make those files available. A misspelled or
+omitted project asset is observationally identical, so the diagnostic states
+only the measured fact and the built-in possibility; it does not hardcode or
+assert an Editor-resource name list. If `projectRoot` is empty and no search
+was possible, that remains an actionable A diagnostic instead.
+
+Unity 6000.0.40f1 substitutes an Editor icon after a failed `resource()`
+lookup. The extension intentionally keeps the core's magenta fallback and the
+warning. Substitution would make an unavailable or misspelled asset look
+plausibly correct, violating the viewer's rule that failed rendering stays
+visible.
+
+## Correction — the 419-resource C diagnosis was wrong
+
+The preceding section records a diagnosis the extension should not have made.
+It changed one measured fact — no match in the collected project Resources —
+into an unsupported cause: that the reference might be an Editor built-in.
+That inference put all 419 occurrences in C, where the panel tells the user
+there is nothing they can do. In a complete copy of this project, every one of
+those references resolves.
+
+The evidence is conclusive. The 419 occurrences reduce to 120 unique names,
+all under `Textures/Icons/`. None of the 120 uses the observed Editor-icon
+forms such as a `d_` or `console.` prefix. The pinned source commit contains all
+120 corresponding SVG files under
+`Assets/DesignSystem/Resources/Textures/Icons/`; the local sample contained
+the importing USS files but omitted that directory. The first collection took
+UXML, its stylesheets, and images referenced directly by URL, so it missed
+assets reached only through `resource()`.
+
+The collection now includes those 120 SVGs byte-for-byte from commit
+`76e4bb0`; SHA-256 comparison against the downloaded source found zero
+mismatches. Re-running all 14 documents splits the surfaced cohort into
+**419 resolved and drawn / 0 absent after searching Resources (A) / 0 other
+causes**: ThemePreview 177 and Showcase 242. The three pre-existing
+`resource('sinanata')` occurrences remain separate from that cohort.
+
+The host diagnostic was corrected at the same time. It now reports only the
+number of Resources folders searched, the failed name, and the configured
+project root. Zero folders and a missing target both stay in A; a target found
+only in a format the preview cannot load goes to B. There is no built-in-name
+list and no cause guessed from a failed lookup.
+
 ## Core issue — give `resolveImport` the importing stylesheet URL
 
 Filed as [`ReuHomi/uxml-preview#1`](https://github.com/ReuHomi/uxml-preview/issues/1).

@@ -6,7 +6,7 @@ import {
   type Warning,
   type WarningKind,
 } from 'uxml-preview';
-import type { AssetForm, AssetReference, HostDiagnostic } from '../src/preview/protocol';
+import type { AssetReference, HostDiagnostic } from '../src/preview/protocol';
 
 export interface WarningLine {
   readonly source: 'parse' | 'render' | 'host';
@@ -16,7 +16,6 @@ export interface WarningLine {
   readonly node?: NodeId;
   /** Exact failed path supplied by a resolver hook, when one can be associated. */
   readonly path?: string;
-  readonly assetForm?: AssetForm;
 }
 
 type ActionableLine = WarningLine | HostDiagnostic;
@@ -37,8 +36,8 @@ export interface DivergenceLine {
 
 export interface DiagnosticGroups {
   readonly A: DiagnosticItem[];
-  readonly B: WarningLine[];
-  readonly C: Array<WarningLine | DivergenceLine | HostDiagnostic>;
+  readonly B: Array<WarningLine | HostDiagnostic>;
+  readonly C: Array<WarningLine | DivergenceLine>;
 }
 
 function assertNever(value: never): never {
@@ -73,8 +72,8 @@ export function diagnosticGroups(
   divergences: readonly KnownDivergence[] = KNOWN_DIVERGENCES,
 ): DiagnosticGroups {
   const groups: DiagnosticGroups = { A: [], B: [], C: [] };
-  const unavailableResources = new Set(hostDiagnostics
-    .filter(({ kind, path }) => kind === 'resource-unavailable' && path !== undefined)
+  const unsupportedResources = new Set(hostDiagnostics
+    .filter(({ kind, path }) => kind === 'resource-unsupported' && path !== undefined)
     .map(({ path }) => path!));
   const addActionable = (line: ActionableLine): void => {
     const item = line.path === undefined
@@ -89,13 +88,8 @@ export function diagnosticGroups(
   };
 
   for (const line of lines) {
-    if (
-      line.kind === 'asset-unresolved'
-      && line.assetForm === 'resource'
-      && line.path !== undefined
-      && unavailableResources.has(line.path)
-    ) {
-      groups.C.push(line);
+    if (line.kind === 'asset-unresolved' && line.path !== undefined && unsupportedResources.has(line.path)) {
+      groups.B.push(line);
       continue;
     }
     const group = diagnosticGroup(line.kind);
@@ -103,8 +97,8 @@ export function diagnosticGroups(
     else groups[group].push(line);
   }
   for (const diagnostic of hostDiagnostics) {
-    if (diagnostic.kind === 'resource-unavailable') {
-      groups.C.push(diagnostic);
+    if (diagnostic.kind === 'resource-unsupported') {
+      groups.B.push(diagnostic);
       continue;
     }
     if (diagnostic.kind === 'project-root-suggested' && diagnostic.path === undefined) {
@@ -140,10 +134,10 @@ function pathInWarning(warning: Warning, candidates: readonly string[]): string 
     .find((candidate) => warning.message.includes(candidate));
 }
 
-function assetInWarning(warning: Warning, candidates: readonly AssetReference[]): AssetReference | undefined {
+function assetInWarning(warning: Warning, candidates: readonly AssetReference[]): string | undefined {
   return [...candidates]
     .sort((left, right) => right.path.length - left.path.length)
-    .find(({ path }) => warning.message.includes(path));
+    .find(({ path }) => warning.message.includes(path))?.path;
 }
 
 /**
@@ -167,7 +161,7 @@ export function warningLines(
       const asset = warning.kind === 'asset-unresolved' ? assetInWarning(warning, unresolvedAssets) : undefined;
       return {
         ...warningLine('render', warning),
-        ...(asset === undefined ? {} : { path: asset.path, assetForm: asset.form }),
+        ...(asset === undefined ? {} : { path: asset }),
       };
     }),
     ...unresolvedImports.map((url) => ({

@@ -96,22 +96,47 @@ describe('resource() asset resolution', () => {
     }));
   });
 
-  it('does not resolve a matching file outside Resources', async () => {
+  it('reports that zero Resources folders were searched', async () => {
     const root = await fixture(['Assets/UI/icon.png']);
     const result = await resolveAssetRoundTrip(request(root), [resource('icon')], options(root));
+    const warning = result!.request.assetDiagnostics.at(-1)!;
 
     expect(result!.request.assets).toEqual({});
-    expect(result!.request.assetDiagnostics.at(-1)?.kind).toBe('resource-unavailable');
+    expect(warning.kind).toBe('resource-unresolved');
+    expect(warning.message).toContain('0 Resources folders');
+    expect(warning.message).toContain(root);
   });
 
-  it('reports that an absent project asset may be a Unity Editor built-in resource', async () => {
-    const root = await fixture([]);
-    const result = await resolveAssetRoundTrip(request(root), [resource('console.warnicon')], options(root));
+  it('reports how many Resources folders were searched without finding the target', async () => {
+    const root = await fixture([
+      'Assets/Resources/other.png',
+      'Assets/Sub/Resources/other.png',
+    ]);
+    const result = await resolveAssetRoundTrip(request(root), [resource('missing')], options(root));
+    const warning = result!.request.assetDiagnostics.at(-1)!;
 
-    expect(result!.request.assetDiagnostics.at(-1)).toEqual(expect.objectContaining({
-      kind: 'resource-unavailable',
-      message: expect.stringMatching(/Unity Editor built-in.*unavailable/i),
-    }));
+    expect(warning.kind).toBe('resource-unresolved');
+    expect(warning.message).toContain('2 Resources folders');
+    expect(warning.message).toContain(root);
+  });
+
+  it('does not guess that a missing resource is built-in or Editor-owned', async () => {
+    const root = await fixture(['Assets/Resources/other.png']);
+    const result = await resolveAssetRoundTrip(request(root), [resource('console.warnicon')], options(root));
+    const warning = result!.request.assetDiagnostics.at(-1)!;
+
+    expect(warning.message).not.toMatch(/built-in|editor/i);
+  });
+
+  it('reports a found but unsupported format separately', async () => {
+    const root = await fixture(['Assets/Resources/data.tga']);
+    const result = await resolveAssetRoundTrip(request(root), [resource('data')], options(root));
+    const warning = result!.request.assetDiagnostics.at(-1)!;
+
+    expect(result!.request.assets).toEqual({});
+    expect(warning.kind).toBe('resource-unsupported');
+    expect(warning.message).toContain('1 Resources folder');
+    expect(warning.message).toContain('.tga');
   });
 
   it('does not send url() through Resources lookup', async () => {
@@ -121,7 +146,7 @@ describe('resource() asset resolution', () => {
     const result = await resolveAssetRoundTrip(request(root), [url('Assets/UI/icon.png')], {
       ...options(root),
       resolvePath: async () => direct,
-      buildResourceIndex: async () => { scans += 1; return new Map(); },
+      buildResourceIndex: async () => { scans += 1; return { folders: 0, assets: new Map() }; },
     });
 
     expect(result!.request.assets[assetKey('Assets/UI/icon.png', 'url')]).toBe(direct.uri);
@@ -133,7 +158,7 @@ describe('resource() asset resolution', () => {
     let scans = 0;
     await resolveAssetRoundTrip(request(root), [], {
       ...options(root),
-      buildResourceIndex: async () => { scans += 1; return new Map(); },
+      buildResourceIndex: async () => { scans += 1; return { folders: 0, assets: new Map() }; },
     });
 
     expect(scans).toBe(0);
@@ -148,7 +173,7 @@ describe('resource() asset resolution', () => {
       ...options(root, cache),
       buildResourceIndex: async () => {
         scans += 1;
-        return new Map([['icon', [{ filePath, depth: 1 }]]]);
+        return { folders: 1, assets: new Map([['icon', [{ filePath, depth: 1 }]]]) };
       },
     };
 

@@ -586,8 +586,8 @@ describe('webview render messages', () => {
     });
   });
 
-  it('classifies an unavailable resource() as an Editor-only difference without projectRoot guidance', async () => {
-    const assetPath = 'console.warnicon';
+  it('classifies a missing resource() as fixable with projectRoot guidance', async () => {
+    const assetPath = 'missing';
     window.dispatchEvent(new MessageEvent('message', { data: request(
       `<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:VisualElement style="background-image: resource('${assetPath}');" /></ui:UXML>`,
       {},
@@ -595,18 +595,18 @@ describe('webview render messages', () => {
       'C:\\Unity\\Project',
       [{
         source: 'host',
-        kind: 'resource-unavailable',
+        kind: 'resource-unresolved',
         path: assetPath,
-        message: 'No project Resources match; this may be a Unity Editor built-in resource unavailable outside the Editor.',
+        message: 'Searched 2 Resources folders under C:\\Unity\\Project and did not find missing.',
       }],
     ) }));
 
     await vi.waitFor(() => {
-      expect(document.querySelector('#warnings [data-group="A"]')).toBeNull();
-      const differences = document.querySelector<HTMLElement>('#warnings [data-group="C"]')!;
-      expect(differences.textContent).toContain('resource-unavailable');
-      expect(differences.textContent).toContain('Unity Editor built-in');
-      expect(differences.textContent).not.toContain('uxmlPreview.projectRoot');
+      const fixable = document.querySelector<HTMLElement>('#warnings [data-group="A"]')!;
+      expect(fixable.textContent).toContain('resource-unresolved');
+      expect(fixable.textContent).toContain('2 Resources folders');
+      expect(fixable.textContent).toContain('uxmlPreview.projectRoot = C:\\Unity\\Project');
+      expect(fixable.textContent).not.toMatch(/built-in|editor/i);
     });
     expect(latestAssetMisses()).toEqual({
       type: 'asset-misses',
