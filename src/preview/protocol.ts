@@ -15,11 +15,11 @@ export interface RenderRequest {
   readonly unresolvedImports: readonly string[];
   /** Current setting value, included so actionable diagnostics can explain resolution. */
   readonly projectRoot: string;
-  /** Host facts discovered while resolving assets; shown in the fixable group. */
+  /** Host facts discovered while resolving assets. */
   readonly assetDiagnostics: readonly AssetDiagnostic[];
   /** Host facts discovered while resolving imports; shown in the fixable group. */
   readonly importDiagnostics: readonly ImportDiagnostic[];
-  /** Asset path to a webview URI resolved after the discovery render. */
+  /** `(path, form)` to a webview URI resolved after the discovery render. */
   readonly assets: Record<string, string>;
   /** False on discovery render, true after the one permitted asset round trip. */
   readonly assetsResolved: boolean;
@@ -54,9 +54,20 @@ export function importKey(url: string, from: string | null): string {
   return JSON.stringify([url, from]);
 }
 
+export type AssetForm = 'url' | 'resource';
+
+export interface AssetReference {
+  readonly path: string;
+  readonly form: AssetForm;
+}
+
+export function assetKey(path: string, form: AssetForm): string {
+  return JSON.stringify([path, form]);
+}
+
 export interface AssetDiagnostic {
   readonly source: 'host';
-  readonly kind: 'guid-index' | 'guid-index-skipped' | 'asset-path-stale' | 'guid-unresolved' | 'project-root-suggested' | 'package-cache-skipped';
+  readonly kind: 'guid-index' | 'guid-index-skipped' | 'asset-path-stale' | 'guid-unresolved' | 'project-root-suggested' | 'package-cache-skipped' | 'resource-ambiguous' | 'resource-unavailable';
   readonly message: string;
   /** Failed path this explains. No path means panel-wide host information. */
   readonly path?: string;
@@ -83,10 +94,10 @@ export interface ReadyNotice {
   readonly type: 'ready';
 }
 
-/** Webview to host: paths the render asked for and did not have. */
+/** Webview to host: asset references the render asked for and did not have. */
 export interface AssetMisses {
   readonly type: 'asset-misses';
-  readonly paths: readonly string[];
+  readonly references: readonly AssetReference[];
 }
 
 export interface CanvasSettings {

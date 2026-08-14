@@ -5,7 +5,7 @@
 import os from 'node:os';
 import path from 'node:path';
 import * as vscode from 'vscode';
-import { resolveAssetRoundTrip, type GuidIndexCache, type ResolvedAsset } from './assets';
+import { resolveAssetRoundTrip, type AssetIndexCache, type ResolvedAsset } from './assets';
 import {
   collectImports,
   createStylesheetReader,
@@ -14,7 +14,7 @@ import {
   watchTargets,
 } from './imports';
 import { contentSecurityPolicy, nonce } from './csp';
-import type { AssetDiagnostic, ImportDiagnostic, RenderFailure, RenderRequest, WebviewMessage } from './protocol';
+import type { AssetDiagnostic, AssetReference, ImportDiagnostic, RenderFailure, RenderRequest, WebviewMessage } from './protocol';
 import { suggestUnityProjectRoot } from './unity-project';
 
 const decoder = new TextDecoder();
@@ -29,8 +29,8 @@ export class PreviewPanel implements vscode.Disposable {
   private readonly watchDisposables: vscode.Disposable[] = [];
   private readonly dist: vscode.Uri;
   private readonly key: string;
-  // Panel-owned: reuse one in-memory scan and discard it when this panel dies.
-  private readonly guidIndexCache: GuidIndexCache = {};
+  // Panel-owned: reuse lazy GUID/Resources scans and discard them when this panel dies.
+  private readonly assetIndexCache: AssetIndexCache = {};
   private assetRoots: readonly string[] = [];
   private activeStates: readonly string[] = [];
   private lastRequest: RenderRequest | undefined;
@@ -296,7 +296,7 @@ export class PreviewPanel implements vscode.Disposable {
 
   private onMessage(message: WebviewMessage): void {
     if (message.type === 'asset-misses') {
-      this.runAssetRoundTrip(message.paths);
+      this.runAssetRoundTrip(message.references);
       return;
     }
     if (message.type === 'canvas-settings') {
@@ -353,8 +353,8 @@ export class PreviewPanel implements vscode.Disposable {
     });
   }
 
-  private runAssetRoundTrip(paths: readonly string[]): void {
-    void this.renderResolvedAssets(paths).catch((error: unknown) => {
+  private runAssetRoundTrip(references: readonly AssetReference[]): void {
+    void this.renderResolvedAssets(references).catch((error: unknown) => {
       if (!this.disposed) {
         const detail = error instanceof Error ? error.message : String(error);
         void vscode.window.showErrorMessage(`UXML Preview: ${detail}`);
@@ -401,14 +401,14 @@ export class PreviewPanel implements vscode.Disposable {
     }
   }
 
-  private async renderResolvedAssets(paths: readonly string[]): Promise<void> {
+  private async renderResolvedAssets(references: readonly AssetReference[]): Promise<void> {
     const request = this.lastRequest;
     if (request === undefined || request.assetsResolved || this.disposed) return;
 
     const claimed = { ...request, assetsResolved: true };
     this.lastRequest = claimed;
-    const result = await resolveAssetRoundTrip(request, paths, {
-      cache: this.guidIndexCache,
+    const result = await resolveAssetRoundTrip(request, references, {
+      cache: this.assetIndexCache,
       projectRoot: request.projectRoot,
       resolvePath: (assetPath) => this.resolveAsset(assetPath, request.projectRoot),
       resolveIndexedPath: (filePath) => this.resolveAssetFile(filePath),

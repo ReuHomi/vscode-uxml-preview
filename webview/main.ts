@@ -4,7 +4,7 @@
  */
 import { loadLayoutEngine, parse, render } from 'uxml-preview';
 import type { RenderResult, SourceRef, UxmlDocument, Warning } from 'uxml-preview';
-import { importKey, type HostDiagnostic, type HostMessage, type RenderRequest } from '../src/preview/protocol';
+import { assetKey, importKey, type AssetReference, type HostDiagnostic, type HostMessage, type RenderRequest } from '../src/preview/protocol';
 import {
   diagnosticGroups,
   warningLines,
@@ -48,7 +48,9 @@ function diagnosticItem(
 
   if (line.source !== 'known-divergence') {
     let context: string | undefined;
-    if (line.kind === 'import-unresolved' || line.kind === 'asset-unresolved') {
+    if (line.kind === 'import-unresolved' || (
+      line.kind === 'asset-unresolved' && (!('assetForm' in line) || line.assetForm !== 'resource')
+    )) {
       context = projectRoot === ''
         ? 'host: uxmlPreview.projectRoot is empty. Set it in Settings to the Unity project root.'
         : `host: uxmlPreview.projectRoot = ${projectRoot}`;
@@ -204,7 +206,7 @@ async function renderMessage(msg: HostMessage): Promise<void> {
   canvasSize.textContent = `${canvas.width} × ${canvas.height}`;
   warningPanel.replaceChildren();
 
-  const assetMisses = new Set<string>();
+  const assetMisses = new Map<string, AssetReference>();
   const imports = new Map(msg.imports.map(({ url, from, text }) => [importKey(url, from), text]));
   const documentModel = parse(msg.uxml, msg.uss, {
     resolveImport: (url, from) => imports.get(importKey(url, from)) ?? null,
@@ -213,10 +215,10 @@ async function renderMessage(msg: HostMessage): Promise<void> {
     size: canvas,
     activeStates: new Set(msg.activeStates),
     states: msg.states,
-    resolveAsset: (path, _form) => {
-      // Step 5 receives core 0.3's form but intentionally leaves resource() for its own step.
-      const uri = msg.assets[path];
-      if (uri === undefined) assetMisses.add(path);
+    resolveAsset: (path, form) => {
+      const key = assetKey(path, form);
+      const uri = msg.assets[key];
+      if (uri === undefined) assetMisses.set(key, { path, form });
       return uri ?? null;
     },
   });
@@ -224,7 +226,7 @@ async function renderMessage(msg: HostMessage): Promise<void> {
 
   markUnsupportedControls(result.warnings, result);
   showDiagnostics(
-    warningLines(documentModel.warnings, result.warnings, msg.unresolvedImports, [...assetMisses]),
+    warningLines(documentModel.warnings, result.warnings, msg.unresolvedImports, [...assetMisses.values()]),
     msg.projectRoot,
     [...msg.importDiagnostics, ...msg.assetDiagnostics],
     documentModel,
@@ -232,7 +234,7 @@ async function renderMessage(msg: HostMessage): Promise<void> {
     canvas,
   );
 
-  vscode.postMessage({ type: 'asset-misses', paths: [...assetMisses] });
+  vscode.postMessage({ type: 'asset-misses', references: [...assetMisses.values()] });
 }
 
 function postCanvasSettings(canvas: { width: number; height: number }, fitToPanel: boolean): void {

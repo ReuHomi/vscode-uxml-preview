@@ -3,10 +3,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { buildGuidIndex } from 'uxml-preview/unity-project';
-import type { RenderRequest } from '../src/preview/protocol';
+import { assetKey, type AssetReference, type RenderRequest } from '../src/preview/protocol';
 import {
   resolveAssetRoundTrip,
-  type GuidIndexCache,
+  type AssetIndexCache,
   type ResolvedAsset,
 } from '../src/preview/assets';
 
@@ -14,6 +14,7 @@ const GUID = '0123456789abcdef0123456789abcdef';
 const MOVED = `project://database/Assets/UI/icon.png?fileID=2800000&guid=${GUID}`;
 const DEBUG_PACKAGE = 'project://database/Packages/com.annulusgames.debug-ui/Package%20Resources/Debug%20UI.uss?fileID=7433441132597879392&guid=e9f02f385e5b745d8aa12c1ffa8e5e8&type=3#Debug UI';
 const temporaryRoots: string[] = [];
+const url = (assetPath: string): AssetReference => ({ path: assetPath, form: 'url' });
 
 function request(projectRoot = ''): RenderRequest {
   return {
@@ -55,7 +56,7 @@ const resolved = (filePath: string): ResolvedAsset => ({
 
 describe('resolveAssetRoundTrip', () => {
   it('explains that an unresolved package asset was not searched in PackageCache', async () => {
-    const result = await resolveAssetRoundTrip(request('C:\\project'), [DEBUG_PACKAGE], {
+    const result = await resolveAssetRoundTrip(request('C:\\project'), [url(DEBUG_PACKAGE)], {
       cache: {},
       projectRoot: 'C:\\project',
       resolvePath: async () => null,
@@ -73,7 +74,7 @@ describe('resolveAssetRoundTrip', () => {
   it('does not build an index when the written path resolves', async () => {
     let builds = 0;
     const direct = resolved(path.join('C:\\project', 'Assets', 'UI', 'icon.png'));
-    const result = await resolveAssetRoundTrip(request('C:\\project'), [MOVED], {
+    const result = await resolveAssetRoundTrip(request('C:\\project'), [url(MOVED)], {
       cache: {},
       projectRoot: 'C:\\project',
       resolvePath: async () => direct,
@@ -81,14 +82,14 @@ describe('resolveAssetRoundTrip', () => {
       buildGuidIndex: async (root) => { builds += 1; return buildGuidIndex(root); },
     });
 
-    expect(result!.request.assets[MOVED]).toBe(direct.uri);
+    expect(result!.request.assets[assetKey(MOVED, 'url')]).toBe(direct.uri);
     expect(result!.resourceRoots).toEqual([path.dirname(direct.filePath)]);
     expect(builds).toBe(0);
   });
 
   it('uses the real meta index after the written path fails', async () => {
     const { root, actual } = await project();
-    const result = await resolveAssetRoundTrip(request(root), [MOVED], {
+    const result = await resolveAssetRoundTrip(request(root), [url(MOVED)], {
       cache: {},
       projectRoot: root,
       resolvePath: async () => null,
@@ -96,7 +97,7 @@ describe('resolveAssetRoundTrip', () => {
       buildGuidIndex,
     });
 
-    expect(result!.request.assets[MOVED]).toBe(resolved(actual).uri);
+    expect(result!.request.assets[assetKey(MOVED, 'url')]).toBe(resolved(actual).uri);
     expect(result!.request.assetDiagnostics.map(({ kind }) => kind))
       .toEqual(['guid-index', 'asset-path-stale']);
     expect(result!.request.assetDiagnostics[1]!.message).toContain(actual);
@@ -105,7 +106,7 @@ describe('resolveAssetRoundTrip', () => {
   it('leaves the asset unresolved when the real index has no matching GUID', async () => {
     const { root } = await project();
     const badReference = MOVED.replace(GUID, 'ffffffffffffffffffffffffffffffff');
-    const result = await resolveAssetRoundTrip(request(root), [badReference], {
+    const result = await resolveAssetRoundTrip(request(root), [url(badReference)], {
       cache: {},
       projectRoot: root,
       resolvePath: async () => null,
@@ -120,7 +121,7 @@ describe('resolveAssetRoundTrip', () => {
 
   it('does not build an index when projectRoot is empty', async () => {
     let builds = 0;
-    const result = await resolveAssetRoundTrip(request(), [MOVED], {
+    const result = await resolveAssetRoundTrip(request(), [url(MOVED)], {
       cache: {},
       projectRoot: '',
       resolvePath: async () => null,
@@ -134,7 +135,7 @@ describe('resolveAssetRoundTrip', () => {
 
   it('builds the index once and reuses it for the next render', async () => {
     const { root } = await project();
-    const cache: GuidIndexCache = {};
+    const cache: AssetIndexCache = {};
     let builds = 0;
     const options = {
       cache,
@@ -147,8 +148,8 @@ describe('resolveAssetRoundTrip', () => {
       },
     };
 
-    await resolveAssetRoundTrip(request(root), [MOVED], options);
-    const second = await resolveAssetRoundTrip(request(root), [MOVED], options);
+    await resolveAssetRoundTrip(request(root), [url(MOVED)], options);
+    const second = await resolveAssetRoundTrip(request(root), [url(MOVED)], options);
 
     expect(second!.request.assetDiagnostics[0]!.message).toContain('Reused GUID index');
     expect(builds).toBe(1);
@@ -157,14 +158,14 @@ describe('resolveAssetRoundTrip', () => {
   it('still refuses a third render after GUID fallback', async () => {
     const { root } = await project();
     const options = {
-      cache: {} as GuidIndexCache,
+      cache: {} as AssetIndexCache,
       projectRoot: root,
       resolvePath: async () => null,
       resolveIndexedPath: async (filePath: string) => resolved(filePath),
       buildGuidIndex,
     };
-    const second = await resolveAssetRoundTrip(request(root), [MOVED], options);
+    const second = await resolveAssetRoundTrip(request(root), [url(MOVED)], options);
 
-    expect(await resolveAssetRoundTrip(second!.request, [MOVED], options)).toBeNull();
+    expect(await resolveAssetRoundTrip(second!.request, [url(MOVED)], options)).toBeNull();
   });
 });

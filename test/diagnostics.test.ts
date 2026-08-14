@@ -128,6 +128,25 @@ describe('diagnostic groups', () => {
     }));
   });
 
+  it('places an unavailable project resource and its core warning in C', () => {
+    const path = 'console.warnicon';
+    const groups = diagnosticGroups([{
+      source: 'render',
+      kind: 'asset-unresolved',
+      message: `background-image resource('${path}') was not resolved`,
+      path,
+      assetForm: 'resource',
+    }], [{
+      source: 'host',
+      kind: 'resource-unavailable',
+      message: 'No project Resources match; this may be an Editor built-in.',
+      path,
+    }], []);
+
+    expect(groups.A).toEqual([]);
+    expect(groups.C.map(({ kind }) => kind)).toEqual(['asset-unresolved', 'resource-unavailable']);
+  });
+
   it('rejects warning kinds outside the core union at type-check time', () => {
     if (false) {
       // @ts-expect-error A new core kind must be handled in the exhaustive switch first.

@@ -12,3 +12,4 @@
 - `basics/10-root-relative.uxml` — 캔버스를 1920에서 800으로 줄였을 때 75% 폭의 바깥 상자와 `flex-grow` 영역이 함께 눈에 띄게 좁아지면 맞다.
 - `unity-project/Assets/07-moved-asset.uxml` — `projectRoot`를 `examples/unity-project`로 설정했을 때 체크무늬와 `asset-path-stale` 진단이 함께 보여야 한다. USS의 `Assets/UI/icon.png`는 GUID 폴백을 검증하려고 일부러 낡게 둔 경로이므로 고치지 않는다.
 - `unity-project/Assets/08-bad-guid.uxml` — 마젠타 빗금과 `asset-unresolved`, 한 항목을 검색했다는 GUID 진단이 보이면 맞다.
+- `unity-project/Assets/09-resource.uxml` — `projectRoot`를 `examples/unity-project`로 설정했을 때 중첩 `Assets/Sub/Resources/`의 청록·주황 체크무늬가 보이고 `asset-unresolved`가 없으면 맞다.

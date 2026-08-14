@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { liveNodeCount, type RenderResult, type UxmlDocument, type Warning } from 'uxml-preview';
-import type { AssetDiagnostic, AssetMisses, RenderRequest, ResolvedImport } from '../src/preview/protocol';
+import { assetKey, type AssetDiagnostic, type AssetMisses, type RenderRequest, type ResolvedImport } from '../src/preview/protocol';
 import { warningLines } from '../webview/warnings';
 
 const postedMessages: unknown[] = [];
@@ -138,7 +138,10 @@ describe('webview render messages', () => {
     await vi.waitFor(() => expect(document.body.innerText).toContain('asset-unresolved'));
     expect(latestAssetMisses()).toEqual({
       type: 'asset-misses',
-      paths: ['project://database/Assets/UI/missing.png?fileID=2800000&guid=abc123'],
+      references: [{
+        path: 'project://database/Assets/UI/missing.png?fileID=2800000&guid=abc123',
+        form: 'url',
+      }],
     });
   });
 
@@ -458,11 +461,25 @@ describe('webview render messages', () => {
     window.dispatchEvent(new MessageEvent('message', { data: request(
       `<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:VisualElement style='background-image: url("${assetPath}");' /></ui:UXML>`,
       {},
-      { [assetPath]: uri },
+      { [assetKey(assetPath, 'url')]: uri },
     ) }));
 
     await vi.waitFor(() => expect(document.querySelector('#preview')!.innerHTML).toContain(uri));
-    expect(latestAssetMisses()).toEqual({ type: 'asset-misses', paths: [] });
+    expect(latestAssetMisses()).toEqual({ type: 'asset-misses', references: [] });
+    expect(document.body.innerText).not.toContain('asset-unresolved');
+  });
+
+  it('uses a supplied resource() URI without reporting a miss', async () => {
+    const assetPath = 'UI/resource-checker';
+    const uri = 'vscode-webview://asset/resource-checker.svg';
+    window.dispatchEvent(new MessageEvent('message', { data: request(
+      `<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:VisualElement style="background-image: resource('${assetPath}');" /></ui:UXML>`,
+      {},
+      { [assetKey(assetPath, 'resource')]: uri },
+    ) }));
+
+    await vi.waitFor(() => expect(document.querySelector('#preview')!.innerHTML).toContain(uri));
+    expect(latestAssetMisses()).toEqual({ type: 'asset-misses', references: [] });
     expect(document.body.innerText).not.toContain('asset-unresolved');
   });
 
@@ -476,7 +493,10 @@ describe('webview render messages', () => {
     `) }));
 
     await vi.waitFor(() => expect(document.body.innerText).toContain('asset-unresolved'));
-    expect(latestAssetMisses()).toEqual({ type: 'asset-misses', paths: [assetPath] });
+    expect(latestAssetMisses()).toEqual({
+      type: 'asset-misses',
+      references: [{ path: assetPath, form: 'url' }],
+    });
   });
 
   it('shows both unsupported controls without adding an unsupported-property warning', async () => {
@@ -563,6 +583,34 @@ describe('webview render messages', () => {
     await vi.waitFor(() => {
       const action = document.querySelector<HTMLElement>('#warnings [data-group="A"]')!;
       expect(action.textContent).toContain(`uxmlPreview.projectRoot = ${projectRoot}`);
+    });
+  });
+
+  it('classifies an unavailable resource() as an Editor-only difference without projectRoot guidance', async () => {
+    const assetPath = 'console.warnicon';
+    window.dispatchEvent(new MessageEvent('message', { data: request(
+      `<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:VisualElement style="background-image: resource('${assetPath}');" /></ui:UXML>`,
+      {},
+      {},
+      'C:\\Unity\\Project',
+      [{
+        source: 'host',
+        kind: 'resource-unavailable',
+        path: assetPath,
+        message: 'No project Resources match; this may be a Unity Editor built-in resource unavailable outside the Editor.',
+      }],
+    ) }));
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('#warnings [data-group="A"]')).toBeNull();
+      const differences = document.querySelector<HTMLElement>('#warnings [data-group="C"]')!;
+      expect(differences.textContent).toContain('resource-unavailable');
+      expect(differences.textContent).toContain('Unity Editor built-in');
+      expect(differences.textContent).not.toContain('uxmlPreview.projectRoot');
+    });
+    expect(latestAssetMisses()).toEqual({
+      type: 'asset-misses',
+      references: [{ path: assetPath, form: 'resource' }],
     });
   });
 

@@ -1,0 +1,5 @@
+.resource-card {
+  width: 240px;
+  height: 160px;
+  background-image: resource('UI/resource-checker');
+}

@@ -1,0 +1,4 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+  <Style src="09-resource.uss" />
+  <ui:VisualElement class="resource-card" />
+</ui:UXML>
