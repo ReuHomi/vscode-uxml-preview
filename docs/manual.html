@@ -117,7 +117,7 @@ table.man{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;bac
   <h1>UXML PREVIEW</h1>
   <div class="sub">Read Unity UI Toolkit documents without opening the Unity Editor.</div>
   <div class="chips">
-    <span class="chip">VERSION 0.1.0</span><span class="chip">VS CODE 1.90+</span>
+    <span class="chip">VERSION 0.2.0</span><span class="chip">VS CODE 1.90+</span>
     <span class="chip">UNITY DEVELOPERS</span>
   </div>
   <div class="strip"><span>ENGLISH EDITION</span><span>VIEWER, NOT EDITOR</span></div>
@@ -264,7 +264,7 @@ table.man{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;bac
   <p>Read from the top and stop at the <strong>first row that matches</strong>.</p>
   <div class="decide">
     <div class="drow"><div class="cond">You opened a <code>.uss</code> file.</div><div class="arr">▶</div><div class="go">Open a .uxml that references it.</div></div>
-    <div class="drow"><div class="cond">The panel is magenta and says <code>asset-unresolved</code>.</div><div class="arr">▶</div><div class="go">Check projectRoot, path, and GUID.</div></div>
+    <div class="drow"><div class="cond">The panel is magenta and says <code>asset-unresolved</code>.</div><div class="arr">▶</div><div class="go">Read group A: URL references report path and GUID facts; <code>resource()</code> reports how many Resources folders were searched.</div></div>
     <div class="drow"><div class="cond">A plain outlined box says <code>unsupported-control</code>.</div><div class="arr">▶</div><div class="go">Treat it as unsupported renderer coverage.</div></div>
     <div class="drow"><div class="cond">The image renders, but A says the written path is stale.</div><div class="arr">▶</div><div class="go">Update the UXML path to the found file.</div></div>
     <div class="drow"><div class="cond">A newly created missing import is still unresolved.</div><div class="arr">▶</div><div class="go">Reopen the preview to rebuild watches.</div></div>
@@ -290,12 +290,10 @@ table.man{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;bac
 <section>
   <div class="band"><span class="num">6</span><span class="bg"><span>Problem solving</span></span><span class="en">TROUBLESHOOTING</span></div>
   <div class="faq"><div class="q">Why does nothing open for a USS file?</div><div class="a">A USS file cannot be rendered on its own. In Unity UI Toolkit, a stylesheet only takes effect when attached to a document. Open a <code>.uxml</code> file that references this stylesheet with <code>&lt;Style src&gt;</code>.</div></div>
-  <div class="faq"><div class="q">Why is an image replaced by magenta stripes?</div><div class="a">The asset resolver missed. Check the A group, then compare <code>uxmlPreview.projectRoot</code>, the written path, and the GUID.</div></div>
+  <div class="faq"><div class="q">Why is an image replaced by magenta stripes?</div><div class="a">The asset resolver missed. For URL references, group A reports the written path, GUID, and <code>uxmlPreview.projectRoot</code>. For <code>resource()</code>, it reports how many Resources folders were searched and which name was not found: zero folders usually means the project root needs attention, while one or more means the referenced file or path needs attention. Unlike Unity, the viewer deliberately keeps the magenta fallback instead of substituting a built-in icon, so the failure stays visible.</div></div>
   <div class="faq"><div class="q">Why did an image render through GUID fallback and still produce a warning?</div><div class="a">The image exists, but the path written in the UXML is stale. Update the document path to the actual location.</div></div>
   <div class="faq"><div class="q">Why is a custom control only an outlined box?</div><div class="a">The core supports only five control types. The box preserves the unsupported control's location; its B diagnostic names the missing support.</div></div>
   <div class="faq"><div class="q">Why do Template and Instance not appear as composed UI?</div><div class="a">Template composition is not supported. They remain explicit fallbacks instead of being silently treated as successful renders.</div></div>
-  <div class="faq"><div class="q">Why do nested relative USS imports fail?</div><div class="a">The current core import hook does not tell the host which stylesheet requested a relative import. The extension does not guess that base path.</div></div>
-  <div class="faq"><div class="q">Why does an inline-style image URL containing XML entities fail?</div><div class="a">Inline asset URLs can reach the resolver before those entities are decoded. The extension leaves this parser-boundary issue visible.</div></div>
   <div class="faq"><div class="q">Why is a package file under Library missing?</div><div class="a">Only <code>&lt;projectRoot&gt;/Packages</code> is searched. <code>Library/PackageCache</code> is outside the current lookup scope.</div></div>
   <div class="faq"><div class="q">Why did the layout change when I resized the panel?</div><div class="a">Check <strong>Fit to panel</strong>. When enabled, resizing changes the root layout size. When disabled, the fixed canvas remains the layout input.</div></div>
   <div class="faq"><div class="q">Why did a newly created stylesheet not start working automatically?</div><div class="a">Unresolved paths are not watched because no file existed to watch. Reopen the preview after creating the file.</div></div>
@@ -305,7 +303,7 @@ table.man{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;bac
 <!-- COLOPHON -->
 <div class="endpage">
   <div class="lg">UXML PREVIEW</div>
-  Version 0.1.0 · Generated 2026-08-09 · Audience: Unity developers new to this viewer<br>
+  Version 0.2.0 · Generated 2026-08-09 · Audience: Unity developers new to this viewer<br>
   Open this file in a browser. Use Ctrl+P and save as PDF for the print edition.
 </div>
 

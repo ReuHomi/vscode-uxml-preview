@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.2.0 - 2026-08-15
+
+### Changed
+
+- Nested relative `@import` rules now resolve against the stylesheet that
+  contains them.
+- `resource()` image references now resolve from Resources folders anywhere
+  under the project's Assets directory, with or without a file extension.
+- Unity asset paths now accept `/Assets`, `/Packages`, and
+  `project://database/Packages` forms.
+- Asset diagnostics now report what was searched and how many Resources
+  folders were checked instead of guessing why a reference was missing.
+
+### External sample results
+
+- Across 14 real-world documents, unresolved import problems fell from 27 to
+  1, and failures among asset references that were already evaluated fell from
+  10 to 3.
+- Fixing nested imports caused 419 `resource()` references inside previously
+  unread stylesheets to be evaluated for the first time. All 419 now resolve;
+  they were not failures counted before this release.
+
 ## 0.1.0 - 2026-08-10
 
 ### Added

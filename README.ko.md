@@ -39,22 +39,17 @@ Unity Editor를 열지 않고 VS Code 안에서 Unity UI Toolkit `.uxml` 문서�
 - 확정된 크기가 없는 부모 아래에서 주축 백분율을 계산할 때 Unity
   6000.0.40f1의 Yoga와 렌더러가 쓰는 Yoga 버전의 동작이 달라질 수 있다.
 
-외부 프로젝트에서 확인된 경로 문제 두 가지도 남아 있다.
-
-- 상대 `@import`는 코어가 어느 스타일시트에서 요청했는지 알려주기 전까지
-  임포트한 스타일시트를 기준으로 해석할 수 없다
-  ([uxml-preview#1](https://github.com/ReuHomi/uxml-preview/issues/1)).
-- 인라인 `style` 속성의 에셋 URL은 XML 엔티티가 디코드되지 않은 채
-  리졸버에 도달할 수 있다
-  ([uxml-preview#2](https://github.com/ReuHomi/uxml-preview/issues/2)).
+해석에 실패한 `resource()` 참조는 의도적으로 마젠타 폴백으로 남긴다. Unity는
+내장 아이콘으로 대체하지만, 이 확장은 화면을 그럴듯하게 만드는 대신 실패를
+감추게 되므로 대체하지 않는다. 이것은 Unity와의 의도적 차이다.
 
 패키지는 `<projectRoot>/Packages`에서만 찾으며 Unity의
 `Library/PackageCache`는 검색하지 않는다.
 
 ## 측정된 레이아웃 값
 
-Unity 6000.0.40f1과 비교한 **레이아웃 값 564개 중 548개가 일치했다**. 564개는
-요소 141개의 `x`, `y`, `width`, `height` 값이다. 이 수치는 해당 케이스 집합에서
+Unity 6000.0.40f1과 비교한 **레이아웃 값 676개 중 660개가 일치했다**. 676개는
+요소 169개의 `x`, `y`, `width`, `height` 값이다. 이 수치는 해당 케이스 집합에서
 Yoga가 계산한 좌표를 비교한 것이며, 컨트롤 지원 범위나 완성된 화면 전체를
 뜻하지 않는다. 케이스, 환경, 허용 오차, 제외 조건은 코어의
 [정확도 문서](https://github.com/ReuHomi/uxml-preview/blob/main/docs/accuracy.md)에

@@ -15,6 +15,14 @@ CI에서 자동 배포가 필요해지면 그때 인증을 고른다.
 
 Open VSX는 이 폐지와 무관하며 자체 토큰을 쓴다.
 
+## Open VSX 0.2.0 반영 확인
+
+ovsx publish가 성공했으나 버전이 inactive로 표시됐다.
+Open VSX에 게시 성공 후 버전이 활성화되지 않는 백엔드 이슈가
+보고된 바 있다 (eclipse-openvsx/openvsx#1718).
+며칠 뒤 API로 재확인하고, 여전히 안 보이면 이슈를 연다.
+재게시는 "already published but inactive"로 막히므로 시도하지 마라.
+
 ## 개발 의존성 업그레이드 (0.1.0 배포 후)
 
 npm audit --omit=dev 는 0건이다. 배포물에는 영향이 없다.

@@ -2,7 +2,7 @@
   "name": "vscode-uxml-preview",
   "displayName": "UXML Preview for Unity UI Toolkit",
   "description": "Render Unity UI Toolkit UXML/USS inside VS Code, without opening the Unity Editor.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "reuhomi",
   "icon": "icon.png",
   "license": "Apache-2.0",

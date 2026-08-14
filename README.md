@@ -43,22 +43,18 @@ The core renderer publishes three known differences from Unity:
   resolve differently because the Yoga version used by Unity 6000.0.40f1 and
   the Yoga version used by the renderer behave differently.
 
-Two path cases found in external projects are also unresolved:
-
-- Relative `@import` cannot be based on the importing stylesheet until the core
-  tells the resolver which stylesheet requested it
-  ([uxml-preview#1](https://github.com/ReuHomi/uxml-preview/issues/1)).
-- Asset URLs in inline `style` attributes can reach the resolver with XML
-  entities still encoded
-  ([uxml-preview#2](https://github.com/ReuHomi/uxml-preview/issues/2)).
+Failed `resource()` references deliberately remain visible as magenta
+placeholders. Unity substitutes a built-in icon, but this extension does not:
+that would make the screen look plausible while hiding the failure. This is an
+intentional difference from Unity.
 
 Packages are resolved only from `<projectRoot>/Packages`; Unity's
 `Library/PackageCache` is not searched.
 
 ## Measured layout values
 
-Against Unity 6000.0.40f1, **548 of 564 compared layout values matched**. The
-564 values are `x`, `y`, `width`, and `height` for 141 elements. This measures
+Against Unity 6000.0.40f1, **660 of 676 compared layout values matched**. The
+676 values are `x`, `y`, `width`, and `height` for 169 elements. This measures
 Yoga's layout coordinates for that case set, not control coverage or the full
 painted image. See the core's
 [accuracy document](https://github.com/ReuHomi/uxml-preview/blob/main/docs/accuracy.en.md)
