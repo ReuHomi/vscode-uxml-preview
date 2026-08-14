@@ -6,7 +6,7 @@ import {
   type Warning,
   type WarningKind,
 } from 'uxml-preview';
-import type { AssetDiagnostic } from '../src/preview/protocol';
+import type { HostDiagnostic } from '../src/preview/protocol';
 
 export interface WarningLine {
   readonly source: 'parse' | 'render' | 'host';
@@ -18,7 +18,7 @@ export interface WarningLine {
   readonly path?: string;
 }
 
-type ActionableLine = WarningLine | AssetDiagnostic;
+type ActionableLine = WarningLine | HostDiagnostic;
 
 export interface DiagnosticItem {
   readonly path?: string;
@@ -68,7 +68,7 @@ export function diagnosticGroup(kind: WarningKind): keyof DiagnosticGroups {
  */
 export function diagnosticGroups(
   lines: readonly WarningLine[],
-  assetDiagnostics: readonly AssetDiagnostic[] = [],
+  hostDiagnostics: readonly HostDiagnostic[] = [],
   divergences: readonly KnownDivergence[] = KNOWN_DIVERGENCES,
 ): DiagnosticGroups {
   const groups: DiagnosticGroups = { A: [], B: [], C: [] };
@@ -89,7 +89,7 @@ export function diagnosticGroups(
     if (group === 'A') addActionable(line);
     else groups[group].push(line);
   }
-  for (const diagnostic of assetDiagnostics) {
+  for (const diagnostic of hostDiagnostics) {
     if (diagnostic.kind === 'project-root-suggested' && diagnostic.path === undefined) {
       const target = groups.A.find(({ path }) => path !== undefined);
       if (target !== undefined) {

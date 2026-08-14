@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  createStylesheetReader,
   packageCacheNotSearched,
   readStylesheet,
   resolveStylesheetPath,
@@ -103,5 +104,44 @@ describe('readStylesheet', () => {
 
     expect(result).toBeNull();
     expect(packageCacheNotSearched(DEBUG_PACKAGE)).toContain('Library/PackageCache is not searched');
+  });
+});
+
+describe('createStylesheetReader', () => {
+  it('resolves a nested import from its parent stylesheet directory', async () => {
+    const reader = createStylesheetReader(UXML, PROJECT, undefined, async () => '.x {}');
+    await reader.read('nested/main.uss', null);
+
+    expect(await reader.read('theme.uss', 'nested/main.uss')).toEqual({
+      text: '.x {}',
+      path: path.join(PROJECT, 'Assets', 'UI', 'nested', 'theme.uss'),
+    });
+  });
+
+  it('resolves a root-fixed import from projectRoot regardless of from', async () => {
+    const reader = createStylesheetReader(UXML, PROJECT, undefined, async () => '.x {}');
+    await reader.read('nested/main.uss', null);
+
+    expect((await reader.read('/Assets/UI/theme.uss', 'nested/main.uss'))?.path)
+      .toBe(path.join(PROJECT, 'Assets', 'UI', 'theme.uss'));
+  });
+
+  it('warns and refuses to guess when from names more than one disk path', async () => {
+    const reader = createStylesheetReader(UXML, PROJECT, undefined, async () => '.x {}');
+    await reader.read('a/main.uss', null);
+    await reader.read('b/other.uss', null);
+    await reader.read('theme.uss', 'a/main.uss');
+    await reader.read('theme.uss', 'b/other.uss');
+
+    expect(await reader.read('leaf.uss', 'theme.uss')).toBeNull();
+    expect(reader.diagnostics).toEqual([{
+      source: 'host',
+      kind: 'import-base-ambiguous',
+      path: 'theme.uss',
+      message: `Cannot resolve leaf.uss from theme.uss because it names multiple files: ${[
+        path.join(PROJECT, 'Assets', 'UI', 'a', 'theme.uss'),
+        path.join(PROJECT, 'Assets', 'UI', 'b', 'theme.uss'),
+      ].join(', ')}`,
+    }]);
   });
 });

@@ -17,12 +17,13 @@
  */
 import path from 'node:path';
 import { parse } from 'uxml-preview';
+import { importKey, type ImportDiagnostic, type ResolvedImport } from './protocol';
 
 const MAX_ROUNDS = 16;
 
 export interface ImportMap {
-  /** URL exactly as it appears in the file, to stylesheet text. */
-  readonly resolved: ReadonlyMap<string, string>;
+  /** JSON-safe `(url, from)` key to the stylesheet that pair resolved to. */
+  readonly resolved: ReadonlyMap<string, ResolvedImport>;
   /** Disk paths for resolved stylesheets. Only these are safe to watch. */
   readonly paths: readonly string[];
   /** URLs asked for that no reader could turn into text. */
@@ -37,7 +38,12 @@ export interface StylesheetSource {
 }
 
 /** Reads the text and disk path a URL stands for, or null. */
-export type ReadStylesheet = (url: string) => Promise<StylesheetSource | null>;
+export type ReadStylesheet = (url: string, from: string | null) => Promise<StylesheetSource | null>;
+
+export interface StylesheetReader {
+  readonly read: ReadStylesheet;
+  readonly diagnostics: readonly ImportDiagnostic[];
+}
 
 const PROJECT_ASSETS_PREFIX = 'project://database/Assets/';
 const PROJECT_PACKAGES_PREFIX = 'project://database/Packages/';
@@ -128,14 +134,61 @@ export async function readStylesheet(
   }
 }
 
+/**
+ * Purpose:      keep the URL-to-disk-path history needed to resolve `from`.
+ * Deps/Effects: reads files through `readFile`; appends a host diagnostic when
+ *               one parent URL names multiple disk paths.
+ * Ensures:      ambiguous relative imports return null instead of choosing a path.
+ */
+export function createStylesheetReader(
+  uxmlPath: string,
+  projectRoot: string | undefined,
+  workspaceRoot: string | undefined,
+  readFile: (path: string) => Promise<string>,
+): StylesheetReader {
+  const pathsByUrl = new Map<string, Set<string>>();
+  const diagnostics: ImportDiagnostic[] = [];
+
+  return {
+    diagnostics,
+    read: async (url, from) => {
+      let basePath = uxmlPath;
+      const bare = barePath(url);
+      const rootFixed = /^[a-z][a-z0-9+.-]*:/i.test(bare) || bare.startsWith('/');
+      if (from !== null && !rootFixed) {
+        const candidates = [...(pathsByUrl.get(from) ?? [])].sort();
+        if (candidates.length === 0) return null;
+        if (candidates.length > 1) {
+          diagnostics.push({
+            source: 'host',
+            kind: 'import-base-ambiguous',
+            path: from,
+            message: `Cannot resolve ${url} from ${from} because it names multiple files: ${candidates.join(', ')}`,
+          });
+          return null;
+        }
+        basePath = candidates[0]!;
+      }
+
+      const source = await readStylesheet(url, basePath, projectRoot, workspaceRoot, readFile);
+      if (source !== null) {
+        const paths = pathsByUrl.get(url) ?? new Set<string>();
+        paths.add(source.path);
+        pathsByUrl.set(url, paths);
+      }
+      return source;
+    },
+  };
+}
+
 export async function collectImports(
   uxml: string,
   uss: string | undefined,
   read: ReadStylesheet,
 ): Promise<ImportMap> {
-  const resolved = new Map<string, string>();
+  const resolved = new Map<string, ResolvedImport>();
   const paths = new Set<string>();
-  const unresolved = new Set<string>();
+  const unresolved = new Map<string, { readonly url: string; readonly from: string | null }>();
   let rounds = 0;
 
   while (rounds < MAX_ROUNDS) {
@@ -143,30 +196,31 @@ export async function collectImports(
 
     // The hook records what it was asked for. Reading the URL out of a warning
     // message would mean parsing prose the core is free to reword.
-    const asked = new Set<string>();
+    const asked = new Map<string, { readonly url: string; readonly from: string | null }>();
     parse(uxml, uss, {
-      resolveImport: (url) => {
-        asked.add(url);
-        return resolved.get(url) ?? null;
+      resolveImport: (url, from) => {
+        const key = importKey(url, from);
+        asked.set(key, { url, from });
+        return resolved.get(key)?.text ?? null;
       },
     });
 
-    const misses = [...asked].filter((u) => !resolved.has(u) && !unresolved.has(u));
+    const misses = [...asked].filter(([key]) => !resolved.has(key) && !unresolved.has(key));
     if (misses.length === 0) break;
 
-    for (const url of misses) {
-      const source = await read(url);
-      if (source === null) unresolved.add(url);
+    for (const [key, reference] of misses) {
+      const source = await read(reference.url, reference.from);
+      if (source === null) unresolved.set(key, reference);
       else {
-        resolved.set(url, source.text);
+        resolved.set(key, { ...reference, text: source.text });
         paths.add(source.path);
       }
     }
   }
 
-  return { resolved, paths: [...paths], unresolved: [...unresolved], rounds };
+  return { resolved, paths: [...paths], unresolved: [...unresolved.values()].map(({ url }) => url), rounds };
 }
 
 export function watchTargets(uxmlPath: string, importPaths: readonly string[]): string[] {
-  return [uxmlPath, ...importPaths];
+  return [...new Set([uxmlPath, ...importPaths])];
 }

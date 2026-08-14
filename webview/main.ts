@@ -4,7 +4,7 @@
  */
 import { loadLayoutEngine, parse, render } from 'uxml-preview';
 import type { RenderResult, SourceRef, UxmlDocument, Warning } from 'uxml-preview';
-import type { AssetDiagnostic, HostMessage, RenderRequest } from '../src/preview/protocol';
+import { importKey, type HostDiagnostic, type HostMessage, type RenderRequest } from '../src/preview/protocol';
 import {
   diagnosticGroups,
   warningLines,
@@ -38,7 +38,7 @@ function warningLocation(at: SourceRef, documentModel: UxmlDocument): string {
 }
 
 function diagnosticItem(
-  line: WarningLine | DivergenceLine | AssetDiagnostic,
+  line: WarningLine | DivergenceLine | HostDiagnostic,
   projectRoot: string,
   documentModel: UxmlDocument | undefined,
 ): HTMLLIElement {
@@ -90,12 +90,12 @@ function actionableItem(
 function showDiagnostics(
   lines: readonly WarningLine[],
   projectRoot: string,
-  assetDiagnostics: readonly AssetDiagnostic[] = [],
+  hostDiagnostics: readonly HostDiagnostic[] = [],
   documentModel?: UxmlDocument,
   failure?: string,
   canvas?: { readonly width: number; readonly height: number },
 ): void {
-  const groups = diagnosticGroups(lines, assetDiagnostics);
+  const groups = diagnosticGroups(lines, hostDiagnostics);
   const issueCount = groups.A.length
     + groups.B.length
     + groups.C.filter(({ source }) => source !== 'known-divergence').length
@@ -205,8 +205,9 @@ async function renderMessage(msg: HostMessage): Promise<void> {
   warningPanel.replaceChildren();
 
   const assetMisses = new Set<string>();
+  const imports = new Map(msg.imports.map(({ url, from, text }) => [importKey(url, from), text]));
   const documentModel = parse(msg.uxml, msg.uss, {
-    resolveImport: (url) => msg.imports[url] ?? null,
+    resolveImport: (url, from) => imports.get(importKey(url, from)) ?? null,
   });
   const result = render(documentModel, container, {
     size: canvas,
@@ -225,7 +226,7 @@ async function renderMessage(msg: HostMessage): Promise<void> {
   showDiagnostics(
     warningLines(documentModel.warnings, result.warnings, msg.unresolvedImports, [...assetMisses]),
     msg.projectRoot,
-    msg.assetDiagnostics,
+    [...msg.importDiagnostics, ...msg.assetDiagnostics],
     documentModel,
     undefined,
     canvas,

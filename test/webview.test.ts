@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { liveNodeCount, type RenderResult, type UxmlDocument, type Warning } from 'uxml-preview';
-import type { AssetDiagnostic, AssetMisses, RenderRequest } from '../src/preview/protocol';
+import type { AssetDiagnostic, AssetMisses, RenderRequest, ResolvedImport } from '../src/preview/protocol';
 import { warningLines } from '../webview/warnings';
 
 const postedMessages: unknown[] = [];
@@ -30,7 +30,7 @@ vi.mock('uxml-preview', async (importOriginal) => {
 
 function request(
   uxml: string,
-  imports: Record<string, string> = {},
+  imports: readonly ResolvedImport[] | Record<string, string> = [],
   assets: Record<string, string> = {},
   projectRoot = '',
   assetDiagnostics: readonly AssetDiagnostic[] = [],
@@ -39,10 +39,13 @@ function request(
     type: 'render',
     uxml,
     uss: undefined,
-    imports,
+    imports: Array.isArray(imports)
+      ? imports
+      : Object.entries(imports).map(([url, text]) => ({ url, from: null, text })),
     unresolvedImports: [],
     projectRoot,
     assetDiagnostics,
+    importDiagnostics: [],
     assets,
     assetsResolved: false,
     canvas: { width: 1920, height: 1080 },
@@ -153,6 +156,29 @@ describe('webview render messages', () => {
       expect(action.innerText).toContain('<Style src="missing.uss"> could not be resolved');
       expect(action.innerText).toContain('Unresolved stylesheet: missing.uss. It is not watched; reopen the preview after the file is created.');
     });
+  });
+
+  it('looks up equal relative URLs by their parent in the webview', async () => {
+    const message = request(
+      `<ui:UXML xmlns:ui="UnityEngine.UIElements">
+        <Style src="a/main.uss" />
+        <Style src="b/other.uss" />
+        <ui:VisualElement class="target-a" />
+        <ui:VisualElement class="target-b" />
+      </ui:UXML>`,
+      [
+        { url: 'a/main.uss', from: null, text: '@import url("theme.uss");' },
+        { url: 'b/other.uss', from: null, text: '@import url("theme.uss");' },
+        { url: 'theme.uss', from: 'a/main.uss', text: '.target-a { width: 80px; height: 10px; }' },
+        { url: 'theme.uss', from: 'b/other.uss', text: '.target-b { width: 160px; height: 10px; }' },
+      ],
+    );
+    window.dispatchEvent(new MessageEvent('message', { data: message }));
+
+    await vi.waitFor(() => expect(lastRender).toBeDefined());
+    const [a, b] = lastDocumentModel!.root.children.slice(-2);
+    expect(lastRender!.boxes.get(a!.id)!.width).toBe(80);
+    expect(lastRender!.boxes.get(b!.id)!.width).toBe(160);
   });
 
   it('passes hover to render exactly', async () => {

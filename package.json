@@ -67,7 +67,7 @@
     "verify": "npm run check:self-reference && npm run check:rules && npm run typecheck && npm run test"
   },
   "dependencies": {
-    "uxml-preview": "^0.3.0"
+    "uxml-preview": "^0.4.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

@@ -113,6 +113,21 @@ describe('diagnostic groups', () => {
     ]);
   });
 
+  it('places a host import-base ambiguity in the fixable group', () => {
+    const groups = diagnosticGroups([], [{
+      source: 'host',
+      kind: 'import-base-ambiguous',
+      message: 'theme.uss names two files',
+      path: 'theme.uss',
+    }]);
+
+    expect(groups.A).toHaveLength(1);
+    expect(groups.A[0]!.lines[0]).toEqual(expect.objectContaining({
+      source: 'host',
+      kind: 'import-base-ambiguous',
+    }));
+  });
+
   it('rejects warning kinds outside the core union at type-check time', () => {
     if (false) {
       // @ts-expect-error A new core kind must be handled in the exhaustive switch first.

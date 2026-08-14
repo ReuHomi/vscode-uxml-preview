@@ -9,14 +9,16 @@ export interface RenderRequest {
   readonly type: 'render';
   readonly uxml: string;
   readonly uss: undefined;
-  /** Stylesheet URL to text. Everything the core will ask for is already here. */
-  readonly imports: Record<string, string>;
+  /** Every `(url, from)` lookup the core will ask for is already here. */
+  readonly imports: readonly ResolvedImport[];
   /** Stylesheet URLs the host could not read. Kept separate from core warnings. */
   readonly unresolvedImports: readonly string[];
   /** Current setting value, included so actionable diagnostics can explain resolution. */
   readonly projectRoot: string;
   /** Host facts discovered while resolving assets; shown in the fixable group. */
   readonly assetDiagnostics: readonly AssetDiagnostic[];
+  /** Host facts discovered while resolving imports; shown in the fixable group. */
+  readonly importDiagnostics: readonly ImportDiagnostic[];
   /** Asset path to a webview URI resolved after the discovery render. */
   readonly assets: Record<string, string>;
   /** False on discovery render, true after the one permitted asset round trip. */
@@ -39,6 +41,19 @@ export interface RenderRequest {
   readonly states: Record<string, readonly string[]>;
 }
 
+export interface ImportReference {
+  readonly url: string;
+  readonly from: string | null;
+}
+
+export interface ResolvedImport extends ImportReference {
+  readonly text: string;
+}
+
+export function importKey(url: string, from: string | null): string {
+  return JSON.stringify([url, from]);
+}
+
 export interface AssetDiagnostic {
   readonly source: 'host';
   readonly kind: 'guid-index' | 'guid-index-skipped' | 'asset-path-stale' | 'guid-unresolved' | 'project-root-suggested' | 'package-cache-skipped';
@@ -46,6 +61,16 @@ export interface AssetDiagnostic {
   /** Failed path this explains. No path means panel-wide host information. */
   readonly path?: string;
 }
+
+export interface ImportDiagnostic {
+  readonly source: 'host';
+  readonly kind: 'import-base-ambiguous';
+  readonly message: string;
+  /** Parent URL whose disk path could not be chosen safely. */
+  readonly path: string;
+}
+
+export type HostDiagnostic = AssetDiagnostic | ImportDiagnostic;
 
 /** Host to webview: a refresh failed before a render request could be built. */
 export interface RenderFailure {

@@ -8,13 +8,13 @@ import * as vscode from 'vscode';
 import { resolveAssetRoundTrip, type GuidIndexCache, type ResolvedAsset } from './assets';
 import {
   collectImports,
+  createStylesheetReader,
   packageCacheNotSearched,
-  readStylesheet,
   resolveStylesheetPath,
   watchTargets,
 } from './imports';
 import { contentSecurityPolicy, nonce } from './csp';
-import type { AssetDiagnostic, RenderFailure, RenderRequest, WebviewMessage } from './protocol';
+import type { AssetDiagnostic, ImportDiagnostic, RenderFailure, RenderRequest, WebviewMessage } from './protocol';
 import { suggestUnityProjectRoot } from './unity-project';
 
 const decoder = new TextDecoder();
@@ -468,15 +468,15 @@ export class PreviewPanel implements vscode.Disposable {
           return false;
         }
       });
+      const stylesheetReader = createStylesheetReader(
+        this.uri.fsPath,
+        projectRoot,
+        workspaceRoot,
+        async (filePath) => decoder.decode(await vscode.workspace.fs.readFile(vscode.Uri.file(filePath))),
+      );
       const { request, importPaths } = await buildRenderRequest(
         uxml,
-        (url) => readStylesheet(
-          url,
-          this.uri.fsPath,
-          projectRoot,
-          workspaceRoot,
-          async (filePath) => decoder.decode(await vscode.workspace.fs.readFile(vscode.Uri.file(filePath))),
-        ),
+        stylesheetReader.read,
         {
           width: config.get<number>('canvas.width', 1920),
           height: config.get<number>('canvas.height', 1080),
@@ -485,6 +485,7 @@ export class PreviewPanel implements vscode.Disposable {
         projectRoot,
         this.activeStates,
         suggestedRoot,
+        stylesheetReader.diagnostics,
       );
 
       if (this.disposed) return;
@@ -522,6 +523,7 @@ export async function buildRenderRequest(
   projectRoot: string,
   activeStates: readonly string[] = [],
   suggestedRoot: string | null = null,
+  importDiagnostics: readonly ImportDiagnostic[] = [],
 ): Promise<{ request: RenderRequest; importPaths: readonly string[] }> {
   const imports = await collectImports(uxml, undefined, read);
   const assetDiagnostics: AssetDiagnostic[] = suggestedRoot === null ? [] : [{
@@ -544,10 +546,11 @@ export async function buildRenderRequest(
       type: 'render',
       uxml,
       uss: undefined,
-      imports: Object.fromEntries(imports.resolved),
+      imports: [...imports.resolved.values()],
       unresolvedImports: imports.unresolved,
       projectRoot,
       assetDiagnostics,
+      importDiagnostics,
       assets: {},
       assetsResolved: false,
       canvas: { width: canvas.width, height: canvas.height },
