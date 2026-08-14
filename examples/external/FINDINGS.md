@@ -122,6 +122,41 @@ core and host information occupies 65 displayed lines.
   and three Design System Showcase occurrences. Repeated paths reduce these to
   eight path-keyed items.
 
+## Core 0.4.0 import-origin rerun
+
+The same 14 files were observed again on 2026-08-12 with `uxml-preview` 0.4.0
+and the extension resolving imports by `(url, from)`. The earlier figures above
+remain the before-state. The result has three separate counting layers; merging
+them would make newly observable references look like regressions.
+
+1. **Imports:** `import-unresolved` fell from **54 diagnostic lines / 27
+   problems** to **2 diagnostic lines / 1 problem**. The remaining problem is
+   Debug UI's reference to a Packages stylesheet that does not exist in the
+   sampled project. `Library/PackageCache` is deliberately not searched, so
+   this is not an extension resolver failure. No ambiguous-parent warning was
+   observed.
+2. **Previously evaluated asset failures:** the existing cohort fell from
+   **10 occurrences to 3**. The seven entity-escaped inline URLs now resolve;
+   the three remaining occurrences are `resource('sinanata')` in
+   `DesignSystemShowcase.uxml`.
+3. **Newly surfaced asset references:** **420 occurrences** reached
+   `resolveAsset` for the first time because the nested USS files now load.
+   These are not newly created failures: the preview was already missing their
+   effects while the stylesheets were unreadable, but could not diagnose the
+   asset references inside them. They split into ThemePreview **177**,
+   Showcase **242**, and MenuButton **1**. Of the 420, **419 use `resource()`**
+   and **1 uses `url()`**. Together with the three previous-cohort failures,
+   the current total is 423 occurrences, which is not comparable to the old
+   total of 10.
+
+The rerun also found seven Showcase boxes beyond four times the 1920×1080
+canvas. This is a long-document result, not a renderer defect: one wrapping
+container is 4,508px tall and the other six boxes are its bottom content at
+top coordinates 4,332–4,636px. At 3840×4320 the same check found zero boxes
+beyond four canvas widths or heights. The wrapping container's
+`flex-direction`, `flex-wrap`, and padding come from the document's inline
+style, so opening the nested stylesheets exposed the intended tall layout.
+
 ## Core issue — give `resolveImport` the importing stylesheet URL
 
 Filed as [`ReuHomi/uxml-preview#1`](https://github.com/ReuHomi/uxml-preview/issues/1).
