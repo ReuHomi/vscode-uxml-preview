@@ -2,8 +2,8 @@
 
 # UXML Preview for Unity UI Toolkit
 
-Render Unity UI Toolkit `.uxml` documents inside VS Code without opening the
-Unity Editor. Layout is calculated by
+Preview composed Template/Instance UXML in VS Code without opening Unity, and
+catch `element-name` override typos that Unity silently ignores. Layout is calculated by
 [`uxml-preview`](https://github.com/ReuHomi/uxml-preview) with Yoga, the layout
 engine used by UI Toolkit. This extension reads and watches files, hosts the
 preview, and shows what the core renderer produced.
@@ -14,14 +14,23 @@ The renderer supports `VisualElement`, `Label`, `Button`, `Image`, and
 `ScrollView`. Other controls are replaced by plain boxes and reported in the
 diagnostics panel; unsupported content is not silently hidden.
 
-`Template` and `Instance` are not rendered yet. This is a common limitation in
-real UI Toolkit documents, where reusable UI is often composed from templates.
+`Template` declarations and `Instance` uses are composed, including nested
+templates, template-local stylesheets, and non-style `AttributeOverrides`.
+Slots remain intentionally unsupported: slot children are not placed, and the
+diagnostics panel names both the slot definitions and omitted children.
+Unity ignores `style` AttributeOverrides during import, so the preview leaves
+them unapplied and reports `override-style-ignored`. A missing `element-name`
+target is reported as `override-target-missing`, including the names available
+in that instance scope.
 
 This scope was checked against 14 UXML documents from six external open-source
-projects. The sample produced 131 `unsupported-control` diagnostics. That is
-not 131 separate rendering failures: it is another way of seeing that only the
-five control types above are currently supported. The sources, licences, and
-file-by-file observations are in the
+projects. The original baseline produced 131 `unsupported-control`
+diagnostics; that is a diagnostic count, not 131 separate rendering failures.
+In the one template-bearing document, the 0.5.0 rerun expanded all 15
+instances: 31 template fallback diagnostic lines (one declaration, 15
+instances, and 15 overrides) fell to zero. One newly visible duplicate-name
+diagnostic is recorded separately. The sources, licences, and file-by-file
+observations are in the
 [external sample findings](examples/external/FINDINGS.md).
 
 This extension:
@@ -59,6 +68,11 @@ Yoga's layout coordinates for that case set, not control coverage or the full
 painted image. See the core's
 [accuracy document](https://github.com/ReuHomi/uxml-preview/blob/main/docs/accuracy.en.md)
 for the cases, environment, tolerance, and exclusions.
+
+A separate Unity 6000.0.40f1 Template/Instance cohort matched **200 of 220
+coordinate values across 55 elements in 11 rendered cases**. All 20 differences
+are the existing browser/Unity text-metric cause; this cohort is not combined
+with the base-control figure above.
 
 ## Open a preview
 

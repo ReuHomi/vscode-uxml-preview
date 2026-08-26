@@ -117,7 +117,7 @@ table.man{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;bac
   <h1>UXML PREVIEW</h1>
   <div class="sub">Read Unity UI Toolkit documents without opening the Unity Editor.</div>
   <div class="chips">
-    <span class="chip">VERSION 0.2.0</span><span class="chip">VS CODE 1.90+</span>
+    <span class="chip">VERSION 0.3.0</span><span class="chip">VS CODE 1.90+</span>
     <span class="chip">UNITY DEVELOPERS</span>
   </div>
   <div class="strip"><span>ENGLISH EDITION</span><span>VIEWER, NOT EDITOR</span></div>
@@ -141,7 +141,7 @@ table.man{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;bac
   <div class="band"><span class="num">1</span><span class="bg"><span>What this viewer does</span></span><span class="en">BASICS</span></div>
   <p>UXML Preview renders a <code>.uxml</code> document in a VS Code webview. The extension reads and watches files; the <code>uxml-preview</code> core parses UXML and USS, lays it out with Yoga, and paints the result.</p>
   <div class="pull">"If the renderer cannot honor something, the panel must say so."<small>THE VIEWER'S CONTRACT</small></div>
-  <p>It draws five control types: <code>VisualElement</code>, <code>Label</code>, <code>Button</code>, <code>Image</code>, and <code>ScrollView</code>. Other controls become plain fallback boxes. <code>Template</code> and <code>Instance</code> are not rendered.</p>
+  <p>It draws five control types: <code>VisualElement</code>, <code>Label</code>, <code>Button</code>, <code>Image</code>, and <code>ScrollView</code>. Other controls become plain fallback boxes. <code>Template</code> and <code>Instance</code> compose reusable UI; slots remain unsupported and are diagnosed.</p>
   <div class="tip"><span class="nt">SCOPE</span><p>This is a viewer. It does not edit files, validate USS, reproduce every UI Toolkit control, or put diagnostics in VS Code's Problems panel.</p></div>
 
   <h3>Commands</h3>
@@ -293,7 +293,7 @@ table.man{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;bac
   <div class="faq"><div class="q">Why is an image replaced by magenta stripes?</div><div class="a">The asset resolver missed. For URL references, group A reports the written path, GUID, and <code>uxmlPreview.projectRoot</code>. For <code>resource()</code>, it reports how many Resources folders were searched and which name was not found: zero folders usually means the project root needs attention, while one or more means the referenced file or path needs attention. Unlike Unity, the viewer deliberately keeps the magenta fallback instead of substituting a built-in icon, so the failure stays visible.</div></div>
   <div class="faq"><div class="q">Why did an image render through GUID fallback and still produce a warning?</div><div class="a">The image exists, but the path written in the UXML is stale. Update the document path to the actual location.</div></div>
   <div class="faq"><div class="q">Why is a custom control only an outlined box?</div><div class="a">The core supports only five control types. The box preserves the unsupported control's location; its B diagnostic names the missing support.</div></div>
-  <div class="faq"><div class="q">Why do Template and Instance not appear as composed UI?</div><div class="a">Template composition is not supported. They remain explicit fallbacks instead of being silently treated as successful renders.</div></div>
+  <div class="faq"><div class="q">Why is part of a composed Template missing?</div><div class="a">Check group A for an unresolved template, cycle, depth limit, or unmatched <code>element-name</code>. Slots are not composed, and <code>style</code> AttributeOverrides stay unapplied to match Unity import behavior; both cases remain explicit diagnostics.</div></div>
   <div class="faq"><div class="q">Why is a package file under Library missing?</div><div class="a">Only <code>&lt;projectRoot&gt;/Packages</code> is searched. <code>Library/PackageCache</code> is outside the current lookup scope.</div></div>
   <div class="faq"><div class="q">Why did the layout change when I resized the panel?</div><div class="a">Check <strong>Fit to panel</strong>. When enabled, resizing changes the root layout size. When disabled, the fixed canvas remains the layout input.</div></div>
   <div class="faq"><div class="q">Why did a newly created stylesheet not start working automatically?</div><div class="a">Unresolved paths are not watched because no file existed to watch. Reopen the preview after creating the file.</div></div>
@@ -303,7 +303,7 @@ table.man{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;bac
 <!-- COLOPHON -->
 <div class="endpage">
   <div class="lg">UXML PREVIEW</div>
-  Version 0.2.0 · Generated 2026-08-09 · Audience: Unity developers new to this viewer<br>
+  Version 0.3.0 · Generated 2026-08-26 · Audience: Unity developers new to this viewer<br>
   Open this file in a browser. Use Ctrl+P and save as PDF for the print edition.
 </div>
 

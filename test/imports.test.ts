@@ -121,6 +121,40 @@ describe('collectImports', () => {
     expect(globalReads).toBe(1);
   });
 
+  it('prefetches nested template UXML and its local stylesheet', async () => {
+    const entry = `<ui:UXML xmlns:ui="UnityEngine.UIElements">
+      <ui:Template name="Outer" src="templates/outer.uxml" />
+      <ui:Instance template="Outer" />
+    </ui:UXML>`;
+    const files = new Map<string, { text: string; path: string }>([
+      [JSON.stringify(['templates/outer.uxml', null]), {
+        text: `<ui:UXML xmlns:ui="UnityEngine.UIElements"><Style src="outer.uss" /><ui:Template name="Inner" src="inner.uxml" /><ui:Instance template="Inner" /></ui:UXML>`,
+        path: 'templates/outer.uxml',
+      }],
+      [JSON.stringify(['outer.uss', 'templates/outer.uxml']), {
+        text: '.outer { width: 10px; }',
+        path: 'templates/outer.uss',
+      }],
+      [JSON.stringify(['inner.uxml', 'templates/outer.uxml']), {
+        text: `<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:VisualElement /></ui:UXML>`,
+        path: 'templates/inner.uxml',
+      }],
+    ]);
+
+    const result = await collectImports(
+      entry,
+      undefined,
+      async (url, from) => files.get(JSON.stringify([url, from])) ?? null,
+    );
+
+    expect([...result.resolved.values()]).toEqual([
+      { url: 'templates/outer.uxml', from: null, text: files.get(JSON.stringify(['templates/outer.uxml', null]))!.text },
+      { url: 'outer.uss', from: 'templates/outer.uxml', text: '.outer { width: 10px; }' },
+      { url: 'inner.uxml', from: 'templates/outer.uxml', text: files.get(JSON.stringify(['inner.uxml', 'templates/outer.uxml']))!.text },
+    ]);
+    expect(result.unresolved).toEqual([]);
+  });
+
   it('stops following imports at the round cap', async () => {
     const result = await collectImports(UXML('0.uss'), undefined, async (url) => {
       const index = Number.parseInt(url, 10);
@@ -129,6 +163,46 @@ describe('collectImports', () => {
 
     expect(result.rounds).toBe(16);
     expect(result.resolved.size).toBe(16);
+  });
+
+  it('terminates when two template documents point at each other', async () => {
+    const entry = `<ui:UXML xmlns:ui="UnityEngine.UIElements">
+      <ui:Template name="A" src="a.uxml" />
+      <ui:Instance template="A" />
+    </ui:UXML>`;
+    const files = new Map([
+      [JSON.stringify(['a.uxml', null]), {
+        text: `<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Template name="B" src="b.uxml" /><ui:Instance template="B" /></ui:UXML>`,
+        path: 'a.uxml',
+      }],
+      [JSON.stringify(['b.uxml', 'a.uxml']), {
+        text: `<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Template name="A" src="a.uxml" /><ui:Instance template="A" /></ui:UXML>`,
+        path: 'b.uxml',
+      }],
+      [JSON.stringify(['a.uxml', 'b.uxml']), {
+        text: `<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Template name="B" src="b.uxml" /><ui:Instance template="B" /></ui:UXML>`,
+        path: 'a.uxml',
+      }],
+    ]);
+    const result = await collectImports(entry, undefined, async (url, from) => files.get(JSON.stringify([url, from])) ?? null);
+    expect(result.rounds).toBeLessThan(16);
+    expect(result.resolved.size).toBeGreaterThan(0);
+  });
+
+  it('does not prefetch a 20-deep unique template chain that the core would still expand', async () => {
+    const entry = `<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Template name="T0" src="0.uxml" /><ui:Instance template="T0" /></ui:UXML>`;
+    const result = await collectImports(entry, undefined, async (url, from) => {
+      const index = Number.parseInt(url, 10);
+      if (Number.isNaN(index)) return null;
+      const next = index + 1;
+      return {
+        text: `<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Template name="T${next}" src="${next}.uxml" /><ui:Instance template="T${next}" /></ui:UXML>`,
+        path: `${from ?? 'entry'}->${url}`,
+      };
+    });
+    expect(result.rounds).toBe(16);
+    expect(result.resolved.size).toBeLessThan(20);
+    expect(result.unresolved).toEqual([]);
   });
 });
 

@@ -16,7 +16,7 @@
  * set. The round cap here is a cost ceiling, not a correctness device.
  */
 import path from 'node:path';
-import { parse } from 'uxml-preview';
+import { collectDependencies, parse } from 'uxml-preview';
 import { importKey, type ImportDiagnostic, type ResolvedImport } from './protocol';
 
 const MAX_ROUNDS = 16;
@@ -189,6 +189,7 @@ export async function collectImports(
   const resolved = new Map<string, ResolvedImport>();
   const paths = new Set<string>();
   const unresolved = new Map<string, { readonly url: string; readonly from: string | null }>();
+  const templateKeys = new Set<string>();
   let rounds = 0;
 
   while (rounds < MAX_ROUNDS) {
@@ -197,13 +198,27 @@ export async function collectImports(
     // The hook records what it was asked for. Reading the URL out of a warning
     // message would mean parsing prose the core is free to reword.
     const asked = new Map<string, { readonly url: string; readonly from: string | null }>();
-    parse(uxml, uss, {
-      resolveImport: (url, from) => {
+    const inspect = (source: string, documentUrl: string | null, directUss?: string): void => {
+      const ask = (url: string, from: string | null): string | null => {
         const key = importKey(url, from);
         asked.set(key, { url, from });
         return resolved.get(key)?.text ?? null;
-      },
-    });
+      };
+      parse(source, directUss, {
+        resolveImport: (url, from) => ask(url, from ?? documentUrl),
+      });
+      for (const url of collectDependencies(source)) {
+        const key = importKey(url, documentUrl);
+        templateKeys.add(key);
+        ask(url, documentUrl);
+      }
+    };
+
+    inspect(uxml, null, uss);
+    for (const key of templateKeys) {
+      const source = resolved.get(key);
+      if (source !== undefined) inspect(source.text, source.url);
+    }
 
     const misses = [...asked].filter(([key]) => !resolved.has(key) && !unresolved.has(key));
     if (misses.length === 0) break;

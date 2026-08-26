@@ -83,7 +83,7 @@ describe('warningLines', () => {
         {
           source: 'host',
           kind: 'import-unresolved',
-          message: 'Unresolved stylesheet: missing.uss. It is not watched; reopen the preview after the file is created.',
+          message: 'Unresolved dependency: missing.uss. It is not watched; reopen the preview after the file is created.',
           path: 'missing.uss',
         },
       ]);
@@ -157,7 +157,7 @@ describe('webview render messages', () => {
       expect(action.querySelector('summary')!.textContent).toBe('Fixable (1)');
       expect(document.querySelector<HTMLElement>('#warnings > details > summary')!.textContent).toBe('1 issue');
       expect(action.innerText).toContain('<Style src="missing.uss"> could not be resolved');
-      expect(action.innerText).toContain('Unresolved stylesheet: missing.uss. It is not watched; reopen the preview after the file is created.');
+      expect(action.innerText).toContain('Unresolved dependency: missing.uss. It is not watched; reopen the preview after the file is created.');
     });
   });
 
@@ -533,6 +533,31 @@ describe('webview render messages', () => {
       'Renderer differences from Unity (3)',
     ]);
     expect(groups.map(({ open }) => open)).toEqual([false, false]);
+  });
+
+  it('shows template provenance without inventing it for unsupported controls', async () => {
+    window.dispatchEvent(new MessageEvent('message', { data: request(
+      `<ui:UXML xmlns:ui="UnityEngine.UIElements">
+        <ui:Template name="A" src="cycle-a.uxml" />
+        <ui:Instance template="A" />
+        <ui:Toggle />
+      </ui:UXML>`,
+      [
+        { url: 'cycle-a.uxml', from: null, text: '<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Template name="B" src="cycle-b.uxml" /><ui:Instance template="B" /></ui:UXML>' },
+        { url: 'cycle-b.uxml', from: 'cycle-a.uxml', text: '<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Template name="A" src="cycle-a.uxml" /><ui:Instance template="A" /></ui:UXML>' },
+        { url: 'cycle-a.uxml', from: 'cycle-b.uxml', text: '<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Template name="B" src="cycle-b.uxml" /><ui:Instance template="B" /></ui:UXML>' },
+      ],
+    ) }));
+
+    await vi.waitFor(() => expect(document.body.innerText).toContain('template-cycle'));
+    const cycle = lastRender!.warnings.find(({ kind }) => kind === 'template-cycle')!;
+    const cycleItem = Array.from(document.querySelectorAll<HTMLElement>('#warnings li'))
+      .find(({ innerText }) => innerText.includes('template-cycle'))!;
+    const unsupportedControl = Array.from(document.querySelectorAll<HTMLElement>('#warnings li'))
+      .find(({ innerText }) => innerText.includes('unsupported-control'))!;
+    expect(cycle.sourceDocument).toMatch(/^cycle-[ab]\.uxml$/);
+    expect(cycleItem.querySelector('.source-document')?.textContent).toBe(`source: ${cycle.sourceDocument}`);
+    expect(unsupportedControl.querySelector('.source-document')).toBeNull();
   });
 
   it('keeps separate markers for unsupported controls at different core coordinates', async () => {

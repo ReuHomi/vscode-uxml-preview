@@ -12,6 +12,7 @@ export interface WarningLine {
   readonly source: 'parse' | 'render' | 'host';
   readonly kind: WarningKind;
   readonly message: string;
+  readonly sourceDocument?: string | null;
   readonly at?: SourceRef;
   readonly node?: NodeId;
   /** Exact failed path supplied by a resolver hook, when one can be associated. */
@@ -49,11 +50,20 @@ export function diagnosticGroup(kind: WarningKind): keyof DiagnosticGroups {
     case 'import-unresolved':
     case 'asset-unresolved':
     case 'malformed':
+    case 'template-src-unresolved':
+    case 'template-not-declared':
+    case 'template-cycle':
+    case 'template-depth-exceeded':
+    case 'override-target-missing':
+    case 'override-style-ignored':
+    case 'duplicate-name-in-tree':
       return 'A';
     case 'unsupported-control':
     case 'unsupported-property':
     case 'unsupported-selector':
     case 'unsupported-unit':
+    case 'package-path-not-searched':
+    case 'template-slot-unsupported':
       return 'B';
     case 'version-dependent':
       return 'C';
@@ -124,6 +134,7 @@ const warningLine = (source: WarningLine['source'], warning: Warning): WarningLi
   source,
   kind: warning.kind,
   message: warning.message,
+  ...(warning.sourceDocument === undefined ? {} : { sourceDocument: warning.sourceDocument }),
   ...(warning.at === undefined ? {} : { at: warning.at }),
   ...(warning.node === undefined ? {} : { node: warning.node }),
 });
@@ -167,7 +178,7 @@ export function warningLines(
     ...unresolvedImports.map((url) => ({
       source: 'host' as const,
       kind: 'import-unresolved' as const,
-      message: `Unresolved stylesheet: ${url}. It is not watched; reopen the preview after the file is created.`,
+      message: `Unresolved dependency: ${url}. It is not watched; reopen the preview after the file is created.`,
       path: url,
     })),
   ];

@@ -3,6 +3,7 @@ import { KNOWN_DIVERGENCES, type WarningKind } from 'uxml-preview';
 import {
   diagnosticGroup,
   diagnosticGroups,
+  warningLines,
   type WarningLine,
 } from '../webview/warnings';
 
@@ -20,14 +21,23 @@ const unresolved = (source: WarningLine['source'], path: string, message: string
 });
 
 describe('diagnostic groups', () => {
-  it('classifies all eight warning kinds by user action', () => {
+  it('classifies all seventeen warning kinds by user action', () => {
     expect(diagnosticGroup('import-unresolved')).toBe('A');
     expect(diagnosticGroup('asset-unresolved')).toBe('A');
     expect(diagnosticGroup('malformed')).toBe('A');
+    expect(diagnosticGroup('template-src-unresolved')).toBe('A');
+    expect(diagnosticGroup('template-not-declared')).toBe('A');
+    expect(diagnosticGroup('template-cycle')).toBe('A');
+    expect(diagnosticGroup('template-depth-exceeded')).toBe('A');
+    expect(diagnosticGroup('override-target-missing')).toBe('A');
+    expect(diagnosticGroup('override-style-ignored')).toBe('A');
+    expect(diagnosticGroup('duplicate-name-in-tree')).toBe('A');
     expect(diagnosticGroup('unsupported-control')).toBe('B');
     expect(diagnosticGroup('unsupported-property')).toBe('B');
     expect(diagnosticGroup('unsupported-selector')).toBe('B');
     expect(diagnosticGroup('unsupported-unit')).toBe('B');
+    expect(diagnosticGroup('package-path-not-searched')).toBe('B');
+    expect(diagnosticGroup('template-slot-unsupported')).toBe('B');
     expect(diagnosticGroup('version-dependent')).toBe('C');
   });
 
@@ -57,14 +67,20 @@ describe('diagnostic groups', () => {
   it('counts one item when core and host describe the same unresolved path', () => {
     const groups = diagnosticGroups([
       unresolved('parse', 'DesignTokens.uss', '@import "DesignTokens.uss" could not be resolved'),
-      unresolved('host', 'DesignTokens.uss', 'Unresolved stylesheet: DesignTokens.uss. It is not watched; reopen the preview after the file is created.'),
+      unresolved('host', 'DesignTokens.uss', 'Unresolved dependency: DesignTokens.uss. It is not watched; reopen the preview after the file is created.'),
     ]);
 
     expect(groups.A).toHaveLength(1);
     expect(groups.A[0]!.lines.map(({ message }) => message)).toEqual([
       '@import "DesignTokens.uss" could not be resolved',
-      'Unresolved stylesheet: DesignTokens.uss. It is not watched; reopen the preview after the file is created.',
+      'Unresolved dependency: DesignTokens.uss. It is not watched; reopen the preview after the file is created.',
     ]);
+  });
+
+  it('does not mislabel an unresolved template as a stylesheet', () => {
+    expect(warningLines([], [], ['missing.uxml'])[0]!.message).toBe(
+      'Unresolved dependency: missing.uxml. It is not watched; reopen the preview after the file is created.',
+    );
   });
 
   it('counts two different unresolved paths as two items', () => {

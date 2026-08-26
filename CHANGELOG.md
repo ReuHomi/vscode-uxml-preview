@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.3.0 - 2026-08-26
+
+### Known limitations
+
+- Template slots are not composed. Slot children stay omitted and an explicit
+  diagnostic lists the definitions and children involved.
+- `style` in `AttributeOverrides` is ignored to match Unity 6000.0.40f1 and is
+  reported as `override-style-ignored`.
+- Packages under `Library/PackageCache` are not searched.
+
+### Added
+
+- Upgrade the renderer dependency to `uxml-preview@^0.5.0`.
+- Compose `Template` and `Instance`, including nesting, template-local
+  stylesheets, non-style overrides, and cycle/depth guards.
+- Rebuild the resolved file graph after entry, template UXML, or template-local
+  stylesheet changes, then watch the newly resolved paths.
+- Add and exhaustively classify nine core diagnostics:
+  `template-src-unresolved`, `template-not-declared`, `template-cycle`,
+  `template-depth-exceeded`, `override-target-missing`,
+  `duplicate-name-in-tree`, `package-path-not-searched`,
+  `template-slot-unsupported`, and `override-style-ignored`.
+- Show a diagnostic's source document when the core provides it; diagnostics
+  without provenance remain unlabeled.
+
+### External sample results
+
+- The only template-bearing document in the 14-file sample expanded all 15
+  instances. Its 31 template fallback diagnostic lines (one declaration, 15
+  instances, and 15 overrides) fell to zero; one `duplicate-name-in-tree`
+  diagnostic became newly visible and is counted separately.
+- All 14 documents still produced a render tree. This is structural test-DOM
+  evidence, not Unity/browser pixel equality.
+
 ## 0.2.0 - 2026-08-15
 
 ### Changed

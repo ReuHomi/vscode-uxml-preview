@@ -7,12 +7,12 @@ reads used the extension's current resolver. Asset discovery was followed by
 one path-resolution rerender, matching the extension's two-render cap.
 
 `C` includes the three always-present `KNOWN_DIVERGENCES`; an additional
-`version-dependent` warning raises it to four or five. In `A`, the first number
-is the number of failure occurrences and the parenthesised number is the number
-of diagnostic lines. One unresolved import produces a core line and a host
-line; both are preserved because they carry different information.
+`version-dependent` warning raises it to four or five. In the `A` column,
+`problems` means core failure occurrences and `diagnostic lines` means displayed
+core plus host lines. One unresolved import produces one problem but two lines;
+both are preserved because they carry different information.
 
-| File | Render | A (problems; lines) | B | C | Observation |
+| File | Render | A (problems; diagnostic lines) | B | C | Observation |
 |---|---:|---|---|---|---|
 | `unity-royale/Assets/UI/Uxml/TitleScreen.uxml` | rendered | 4 assets (4 lines) | 3 `unsupported-property` | 4 | Labels and boxes render; existing `/Assets/...` images do not resolve, and 9-slice is not painted. |
 | `unity-royale/Assets/UI/Uxml/GameScreen.uxml` | rendered | 2 assets (2 lines) | 0 | 3 | Five nonzero boxes render, but both visible background layers are missing because `/Assets/...` is unresolved. |
@@ -35,7 +35,61 @@ diagnostic lines**. These units are not interchangeable.
 No sample produced an empty DOM, runaway coordinates, or an exception. The
 extension panel therefore had something to say for all 14 inputs.
 
-## Findings grouped by cause
+## Step 6 slot frequency
+
+The 14 UXML files were counted with `rg --pcre2` using attribute-bound matches
+(`slot-name\s*=` and `slot\s*=`), so names such as `slot-name` are not counted as
+`slot` usages. This is an external-corpus frequency only; it is not a verdict on
+Unity's slot support.
+
+| Attribute | Occurrences | Files containing it | Denominator |
+|---|---:|---:|---:|
+| `slot-name=` (definition) | **0** | **0** | 14 UXML files |
+| `slot=` (usage) | **0** | **0** | 14 UXML files |
+
+No `slot-name` definition or `slot` usage appears in this corpus.
+
+## Step 6 re-observation ② — Template / Instance
+
+The same 14 UXML files were rerun on Windows on 2026-08-26 with the installed
+registry package `uxml-preview@0.5.0`, the extension's transitive
+template/stylesheet prefetch, happy-dom, and deterministic text measurement at
+1920×1080. This is separate from
+re-observation ① above: it measures the effect of template expansion, not the
+earlier import-origin or inline-asset fixes.
+
+| Observation | Before Template / Instance | Re-observation ② |
+|---|---:|---:|
+| Documents producing a render tree | 14 / 14 | **14 / 14** |
+| Template-bearing documents | 1 | **1** (`MissionSelectView.uxml`) |
+| Template/Instance/AttributeOverrides fallback diagnostic lines in that document | 31 | **0** |
+| Mission Select boxes | 38 | **37** |
+| Mission Select zero-sized boxes | 32 | **0** |
+| New template diagnostics in the 14-file corpus | n/a | **1 `duplicate-name-in-tree`** |
+
+The baseline 31 is a diagnostic-line count: one Template declaration, 15
+Instance fallbacks, and 15 AttributeOverrides fallbacks. It is not a count of
+opened subtrees.
+
+`MissionSelectView.uxml` declares one `MenuButton` template and instantiates it
+15 times. Re-observation ② prefetched the template UXML plus its two local
+stylesheets, expanded 15 opaque containers and 15 real Buttons, and applied all
+15 text overrides; `Semper Fi` was present in the rendered text. The box count
+drops by one because the declaration and 15 override instruction nodes no
+longer masquerade as visual fallbacks, while the 15 template Buttons are now
+present. All 37 resulting boxes had nonzero width and height.
+
+The one new diagnostic is caused by the template's `name="btn"` being cloned 15
+times. It is intentionally reported as `duplicate-name-in-tree`; warning growth
+is evidence newly exposed by expansion, not a regression and not a reason to
+change fallback policy. No `template-src-unresolved`, `template-not-declared`,
+`template-cycle`, `template-depth-exceeded`, `override-target-missing`,
+`package-path-not-searched`, `template-slot-unsupported`, or
+`override-style-ignored` warning occurred in this rerun. This observation
+establishes structural render output under the test DOM; it does not claim
+Unity/browser pixel equality.
+
+## Original observation findings grouped by cause
 
 ### Core — unsupported controls and template semantics
 
@@ -129,25 +183,36 @@ and the extension resolving imports by `(url, from)`. The earlier figures above
 remain the before-state. The result has three separate counting layers; merging
 them would make newly observable references look like regressions.
 
-1. **Imports:** `import-unresolved` fell from **54 diagnostic lines / 27
-   problems** to **2 diagnostic lines / 1 problem**. The remaining problem is
-   Debug UI's reference to a Packages stylesheet that does not exist in the
-   sampled project. `Library/PackageCache` is deliberately not searched, so
-   this is not an extension resolver failure. No ambiguous-parent warning was
-   observed.
+| Import cohort | Problems (core failure occurrences) | Diagnostic lines (core + host displayed lines) |
+|---|---:|---:|
+| Before the import-origin rerun | 27 | 54 |
+| 0.4.0 `(url, from)` rerun | **1** | **2** |
+
+1. **Imports:** `import-unresolved` fell from 27 problems / 54 diagnostic lines
+   to 1 problem / 2 diagnostic lines. The remaining problem is Debug UI's
+   reference to a Packages stylesheet. The selected corpus has no matching file
+   under `Packages/`, and `Library/PackageCache` is deliberately not searched;
+   record this as the existing **PackageCache-not-searched constraint**, not as a
+   new import-origin resolver failure. No ambiguous-parent warning was observed.
 2. **Previously evaluated asset failures:** the existing cohort fell from
    **10 occurrences to 3**. The seven entity-escaped inline URLs now resolve;
    the three remaining occurrences are `resource('sinanata')` in
    `DesignSystemShowcase.uxml`.
-3. **Newly surfaced asset references:** **420 occurrences** reached
+3. **Newly surfaced asset-reference cohort:** **420 references** reached
    `resolveAsset` for the first time because the nested USS files now load.
    These are not newly created failures: the preview was already missing their
    effects while the stylesheets were unreadable, but could not diagnose the
-   asset references inside them. They split into ThemePreview **177**,
-   Showcase **242**, and MenuButton **1**. Of the 420, **419 use `resource()`**
-   and **1 uses `url()`**. Together with the three previous-cohort failures,
-   the current total is 423 occurrences, which is not comparable to the old
-   total of 10.
+   asset references inside them.
+
+   | Document | `resolveAsset` references | Forms |
+   |---|---:|---|
+   | ThemePreview | 177 | `resource()` |
+   | DesignSystemShowcase | 242 | `resource()` |
+   | MenuButton | 1 | `url()` |
+   | **Total** | **420** | **419 `resource()`, 1 `url()`** |
+
+   Together with the three previous-cohort failures, the current total is 423
+   occurrences, which is not comparable to the old total of 10.
 
 The rerun also found seven Showcase boxes beyond four times the 1920×1080
 canvas. This is a long-document result, not a renderer defect: one wrapping
@@ -204,10 +269,11 @@ assets reached only through `resource()`.
 
 The collection now includes those 120 SVGs byte-for-byte from commit
 `76e4bb0`; SHA-256 comparison against the downloaded source found zero
-mismatches. Re-running all 14 documents splits the surfaced cohort into
-**419 resolved and drawn / 0 absent after searching Resources (A) / 0 other
-causes**: ThemePreview 177 and Showcase 242. The three pre-existing
-`resource('sinanata')` occurrences remain separate from that cohort.
+mismatches. Re-running all 14 documents reports **419 resolved / 0 absent / 0
+other causes** for the surfaced cohort: ThemePreview 177 and Showcase 242.
+This observation establishes path resolution only; it does not assert that each
+reference was drawn. The three pre-existing `resource('sinanata')` occurrences
+remain separate from that cohort.
 
 The host diagnostic was corrected at the same time. It now reports only the
 number of Resources folders searched, the failed name, and the configured

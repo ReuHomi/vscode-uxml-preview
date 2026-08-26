@@ -45,7 +45,12 @@ function diagnosticItem(
   const item = document.createElement('li');
   item.append(`${line.source} [${line.kind}] ${line.message}`);
   if (line.source === 'known-divergence') item.append(` — ${line.detail}`);
-
+  if ('sourceDocument' in line && typeof line.sourceDocument === 'string' && line.sourceDocument !== '') {
+    const source = document.createElement('div');
+    source.className = 'host-context source-document';
+    source.textContent = `source: ${line.sourceDocument}`;
+    item.append(source);
+  }
   if (line.source !== 'known-divergence') {
     let context: string | undefined;
     if (line.kind === 'import-unresolved' || line.kind === 'asset-unresolved') {

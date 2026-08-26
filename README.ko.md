@@ -2,8 +2,8 @@
 
 # Unity UI Toolkit용 UXML Preview
 
-Unity Editor를 열지 않고 VS Code 안에서 Unity UI Toolkit `.uxml` 문서를
-그린다. 레이아웃은 UI Toolkit이 사용하는 레이아웃 엔진 Yoga를 쓰는
+Unity를 열지 않고 VS Code에서 Template/Instance로 조립된 UXML을 미리 보고,
+Unity가 조용히 무시하는 `element-name` 오타를 짚는다. 레이아웃은 UI Toolkit이 사용하는 레이아웃 엔진 Yoga를 쓰는
 [`uxml-preview`](https://github.com/ReuHomi/uxml-preview)가 계산한다. 이 확장은
 파일을 읽고 감시하며, 미리보기 패널을 관리하고, 코어 렌더러의 결과를 보여준다.
 
@@ -13,13 +13,20 @@ Unity Editor를 열지 않고 VS Code 안에서 Unity UI Toolkit `.uxml` 문서�
 그 밖의 컨트롤은 평범한 상자로 대체하고 진단 패널에 표시한다. 지원하지 못한
 내용을 조용히 숨기지 않는다.
 
-`Template`과 `Instance`는 아직 그리지 못한다. 재사용 UI를 템플릿으로 조합하는
-실무 UI Toolkit 문서에서 흔히 마주칠 한계다.
+`Template` 선언과 `Instance` 사용을 조합한다. 중첩 템플릿, 템플릿 로컬
+스타일시트, `style` 이외의 `AttributeOverrides`도 포함한다. 슬롯은 의도적으로
+지원하지 않는다. 슬롯 자식은 배치하지 않고, 진단 패널에 슬롯 정의와 빠진
+자식을 함께 표시한다.
+Unity는 import 중 `style` AttributeOverride를 무시하므로 미리보기에서도 적용하지
+않고 `override-style-ignored`로 알린다. `element-name`이 실제 이름과 맞지 않으면
+`override-target-missing`에 해당 인스턴스 스코프의 실제 이름 목록을 함께 표시한다.
 
 이 범위는 외부 오픈소스 프로젝트 여섯 곳의 UXML 문서 14개로 확인했다. 이
-표본에서는 `unsupported-control` 진단이 131번 발생했다. 이것은 서로 다른 렌더
-실패 131건이 아니라, 현재 지원 컨트롤이 위 다섯 종뿐이라는 사실을 다른 단위로
-본 것이다. 출처, 라이선스, 파일별 관찰은
+원래 표본에서는 `unsupported-control` 진단이 131번 발생했다. 이것은 서로 다른
+렌더 실패 131건이 아니라 진단 건수다. 템플릿을 쓰는 문서 한 개를 0.5.0으로
+재관찰했을 때는 Instance 15개가 모두 전개됐고, 템플릿 폴백 진단 줄 31개
+(선언 1 + Instance 15 + override 15)는 0개가 됐다. 새로 드러난 중복 이름 진단
+1개는 별도로 기록한다. 출처, 라이선스, 파일별 관찰은
 [외부 표본 결과](examples/external/FINDINGS.md)에 기록돼 있다.
 
 이 확장은 다음을 하지 않는다.
@@ -54,6 +61,10 @@ Yoga가 계산한 좌표를 비교한 것이며, 컨트롤 지원 범위나 완�
 뜻하지 않는다. 케이스, 환경, 허용 오차, 제외 조건은 코어의
 [정확도 문서](https://github.com/ReuHomi/uxml-preview/blob/main/docs/accuracy.md)에
 있다.
+
+별도 Unity 6000.0.40f1 Template/Instance 코호트에서는 **렌더 케이스 11개,
+요소 55개의 좌표 220개 중 200개가 일치했다**. 불일치 20개는 모두 기존의
+브라우저/Unity 텍스트 메트릭 원인이며, 위 기본 컨트롤 수치와 합산하지 않는다.
 
 ## 미리보기 열기
 
