@@ -55,8 +55,12 @@ function appendDiagnosticLine(
     && line.subject?.kind === 'property' && line.subject.replacements?.length) {
     item.append(` — ${line.subject.replacements.join(', ')}`);
   }
-  // core: ordinary imported USS warnings also carry sourceDocument = sheet.origin.
-  // Template offsets belong to other documents; ambiguous import URLs cannot select a file.
+  // Warnings from template stylesheets get no button because the core's at.sheet
+  // numbers sheets in the expanded document with the entry sheets first, so a
+  // template sheet's index runs past the entry model's sheet list. This relies on
+  // the core's internal ordering, not its public contract. The case
+  // "links the entry stylesheet warning but not one from a stylesheet a template brought in"
+  // (commit b60d25b) pins it.
   if ('at' in line && line.at !== undefined && documentModel !== undefined) {
     const at = line.at;
     let url: string | null | undefined;
@@ -64,8 +68,7 @@ function appendDiagnosticLine(
       if (line.sourceDocument == null) url = null;
     } else {
       const sheet = documentModel.sheets[at.sheet];
-      if (sheet !== undefined && typeof sheet.origin === 'string' && sheet.sourceDocumentFrom == null
-        && (line.sourceDocument == null || line.sourceDocument === sheet.origin)
+      if (sheet !== undefined && typeof sheet.origin === 'string'
         && imports.filter((entry) => entry.url === sheet.origin).length === 1) {
         url = sheet.origin;
       }
