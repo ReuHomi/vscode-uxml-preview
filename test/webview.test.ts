@@ -783,5 +783,43 @@ describe('webview render messages', () => {
       expect(document.querySelector('#warnings [data-group="A"] [data-reveal]')).toBeNull();
       expect(document.querySelector('#warnings [data-group="C"] [data-reveal]')).toBeNull();
     });
+
+    it('links the entry stylesheet warning but not one from a stylesheet a template brought in', async () => {
+      window.dispatchEvent(new MessageEvent('message', { data: request(
+        `<ui:UXML xmlns:ui="UnityEngine.UIElements">
+          <Style src="entry.uss" />
+          <ui:Template name="T" src="t.uxml" />
+          <ui:VisualElement class="a" />
+          <ui:Instance template="T" />
+        </ui:UXML>`,
+        [
+          { url: 'entry.uss', from: null, text: '.a { font-family: Arial; }' },
+          { url: 't.uxml', from: null, text: '<ui:UXML xmlns:ui="UnityEngine.UIElements"><Style src="inner.uss" /><ui:VisualElement class="b" /></ui:UXML>' },
+          { url: 'inner.uss', from: 't.uxml', text: '.b { colour: red; }' },
+        ],
+      ) }));
+
+      const property = (name: string) => allWarnings().find(({ subject }) => (
+        subject?.kind === 'property' && subject.property === name
+      ));
+      await vi.waitFor(() => {
+        expect(property('font-family')).toBeDefined();
+        expect(property('colour')).toBeDefined();
+      });
+      // Measured on core 0.5.1: a template sheet's at.sheet counts the expanded
+      // document's sheets (entry sheets first), so it points past the entry model
+      // the webview holds. The template warning still names its file and is
+      // listed once in imports — enough to link it if the guard were dropped.
+      const inner = property('colour')!;
+      expect(inner.reason).toBe('not-uss');
+      expect(inner.sourceDocument).toBe('inner.uss');
+      expect(inner.at).toEqual(expect.objectContaining({ in: 'uss' }));
+      expect((inner.at as { sheet: number }).sheet).toBeGreaterThanOrEqual(lastDocumentModel!.sheets.length);
+
+      const items = Array.from(document.querySelectorAll<HTMLElement>('#warnings [data-group="A"] li'));
+      const itemFor = (name: string) => items.find(({ textContent }) => textContent!.includes(name))!;
+      expect(itemFor('font-family').querySelector('[data-reveal]')).not.toBeNull();
+      expect(itemFor('colour').querySelector('[data-reveal]')).toBeNull();
+    });
   });
 });
