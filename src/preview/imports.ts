@@ -1,5 +1,5 @@
 /**
- * Purpose:  turn every stylesheet a document names into text, before rendering.
+ * Purpose:  prefetch named stylesheets and template UXML before rendering.
  * Ensures:  the map is complete — every URL the core will ask for is a hit, or
  *           is reported as unresolved. The webview never waits on a file.
  *
@@ -13,22 +13,23 @@
  * `parse()` runs without a DOM, so the host can run it purely to discover.
  *
  * Not our job: cycle detection. The core already guards imports with a `seen`
- * set. The round cap here is a cost ceiling, not a correctness device.
+ * set. The prefetch ceiling follows the core's TEMPLATE_DEPTH_LIMIT so the host
+ * does not cut a template chain before the core's depth warning can explain it.
  */
 import path from 'node:path';
-import { collectDependencies, parse } from 'uxml-preview';
+import { collectDependencies, parse, TEMPLATE_DEPTH_LIMIT } from 'uxml-preview';
 import { importKey, type ImportDiagnostic, type ResolvedImport } from './protocol';
 
-const MAX_ROUNDS = 16;
-
 export interface ImportMap {
-  /** JSON-safe `(url, from)` key to the stylesheet that pair resolved to. */
+  /** JSON-safe `(url, from)` key to the dependency that pair resolved to. */
   readonly resolved: ReadonlyMap<string, ResolvedImport>;
-  /** Disk paths for resolved stylesheets. Only these are safe to watch. */
+  /** Disk paths for resolved dependencies. Only these are safe to watch. */
   readonly paths: readonly string[];
+  /** Host-only reveal targets; null when a URL has multiple resolved entries. */
+  readonly pathsByUrl: ReadonlyMap<string, string | null>;
   /** URLs asked for that no reader could turn into text. */
   readonly unresolved: readonly string[];
-  /** Rounds used. Equal to MAX_ROUNDS means the walk was cut short. */
+  /** Rounds used. At TEMPLATE_DEPTH_LIMIT the prefetch ceiling was reached. */
   readonly rounds: number;
 }
 
@@ -188,11 +189,12 @@ export async function collectImports(
 ): Promise<ImportMap> {
   const resolved = new Map<string, ResolvedImport>();
   const paths = new Set<string>();
+  const pathsByUrl = new Map<string, string | null>();
   const unresolved = new Map<string, { readonly url: string; readonly from: string | null }>();
   const templateKeys = new Set<string>();
   let rounds = 0;
 
-  while (rounds < MAX_ROUNDS) {
+  while (rounds < TEMPLATE_DEPTH_LIMIT) {
     rounds += 1;
 
     // The hook records what it was asked for. Reading the URL out of a warning
@@ -229,11 +231,14 @@ export async function collectImports(
       else {
         resolved.set(key, { ...reference, text: source.text });
         paths.add(source.path);
+        // Reveal messages carry a URL, not a parent; even equal disk paths
+        // stay unlinked when more than one resolved entry uses that URL.
+        pathsByUrl.set(reference.url, pathsByUrl.has(reference.url) ? null : source.path);
       }
     }
   }
 
-  return { resolved, paths: [...paths], unresolved: [...unresolved.values()].map(({ url }) => url), rounds };
+  return { resolved, paths: [...paths], pathsByUrl, unresolved: [...unresolved.values()].map(({ url }) => url), rounds };
 }
 
 export function watchTargets(uxmlPath: string, importPaths: readonly string[]): string[] {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { KNOWN_DIVERGENCES, type WarningKind } from 'uxml-preview';
+import { KNOWN_DIVERGENCES, type Warning, type WarningKind } from 'uxml-preview';
 import {
   diagnosticGroup,
   diagnosticGroups,
@@ -187,5 +187,137 @@ describe('diagnostic groups', () => {
       // @ts-expect-error A new core kind must be handled in the exhaustive switch first.
       diagnosticGroup('future-warning-kind');
     }
+  });
+});
+
+/**
+ * 0.3.1 cases, written before the implementation (core 0.5.1 `reason`/`subject`).
+ * If one fails, the implementation is wrong — do not edit the expectations here.
+ */
+describe('warningLines reads subject, not the message', () => {
+  it('takes an unresolved import path from subject.url even when the message does not contain it', () => {
+    const warning = {
+      kind: 'import-unresolved',
+      message: 'An imported stylesheet could not be resolved.',
+      subject: { kind: 'import', url: 'Theme/tokens.uss', from: null },
+    } satisfies Warning;
+
+    expect(warningLines([warning], [], ['Theme/tokens.uss'])[0]).toEqual(expect.objectContaining({
+      source: 'parse',
+      path: 'Theme/tokens.uss',
+    }));
+  });
+
+  it('takes an unresolved asset path and form from subject even when the message does not contain it', () => {
+    const warning = {
+      kind: 'asset-unresolved',
+      message: 'An image was not resolved.',
+      subject: { kind: 'asset', path: 'icons/close.png', form: 'url' },
+    } satisfies Warning;
+
+    expect(warningLines([], [warning], [], [{ path: 'icons/close.png', form: 'url' }])[0])
+      .toEqual(expect.objectContaining({ source: 'render', path: 'icons/close.png', form: 'url' }));
+  });
+
+  it('does not fall back to searching the message when subject is absent', () => {
+    const imported = { kind: 'import-unresolved', message: '@import "a.uss" could not be resolved' } satisfies Warning;
+    const asset = { kind: 'asset-unresolved', message: 'background-image: "b.png" was not resolved' } satisfies Warning;
+
+    const [parseLine, renderLine] = warningLines([imported], [asset], ['a.uss'], [{ path: 'b.png', form: 'url' }]);
+    expect(parseLine!.path).toBeUndefined();
+    expect(renderLine!.path).toBeUndefined();
+  });
+
+  it('carries reason and subject through to the line', () => {
+    const subject = { kind: 'property', property: 'font-family', replacements: ['-unity-font-definition'] } as const;
+    const warning = {
+      kind: 'unsupported-property',
+      message: 'font-family is not drawn.',
+      reason: 'not-uss',
+      subject,
+    } satisfies Warning;
+
+    expect(warningLines([], [warning], [])[0]).toEqual(expect.objectContaining({ reason: 'not-uss', subject }));
+  });
+
+  it('keeps a url() asset in A when a resource() of the same path is unsupported', () => {
+    const path = 'data';
+    const groups = diagnosticGroups([{
+      source: 'render',
+      kind: 'asset-unresolved',
+      message: 'An image was not resolved.',
+      path,
+      form: 'url',
+    }], [{
+      source: 'host',
+      kind: 'resource-unsupported',
+      message: 'Found data.asset but its format is unsupported.',
+      path,
+    }], []);
+
+    expect(groups.A.map(({ lines }) => lines[0]!.kind)).toEqual(['asset-unresolved']);
+    expect(groups.B.map(({ kind }) => kind)).toEqual(['resource-unsupported']);
+  });
+});
+
+describe('diagnostic groups by reason', () => {
+  const withReason = (kind: WarningKind, reason: string, subject?: WarningLine['subject']): WarningLine => ({
+    source: 'render',
+    kind,
+    message: `${kind} ${reason}`,
+    reason: reason as WarningLine['reason'],
+    ...(subject === undefined ? {} : { subject }),
+  });
+
+  it.each(['not-uss', 'invalid-value'])('moves a %s warning to the fixable group', (reason) => {
+    const groups = diagnosticGroups([withReason('unsupported-property', reason)], [], []);
+
+    expect(groups.A.map(({ lines }) => lines[0]!.reason)).toEqual([reason]);
+    expect(groups.B).toEqual([]);
+  });
+
+  it('keeps a not-rendered warning in B', () => {
+    const groups = diagnosticGroups([withReason('unsupported-property', 'not-rendered')], [], []);
+
+    expect(groups.A).toEqual([]);
+    expect(groups.B.map(({ kind }) => kind)).toEqual(['unsupported-property']);
+  });
+
+  it('puts a matches-unity warning in the notes group, out of A, B and C', () => {
+    const groups = diagnosticGroups([withReason('version-dependent', 'matches-unity')], [], []);
+
+    expect(groups.A).toEqual([]);
+    expect(groups.B).toEqual([]);
+    expect(groups.C).toEqual([]);
+    expect(groups.D.map(({ kind }) => kind)).toEqual(['version-dependent']);
+  });
+
+  it('keeps a version-dependent reason where its kind puts it', () => {
+    const groups = diagnosticGroups([withReason('version-dependent', 'version-dependent')], [], []);
+
+    expect(groups.C.map(({ kind }) => kind)).toEqual(['version-dependent']);
+  });
+
+  it('sends an unknown reason to the kind-based group, not to A', () => {
+    const groups = diagnosticGroups([withReason('unsupported-property', 'reason-from-a-future-core')], [], []);
+
+    expect(groups.A).toEqual([]);
+    expect(groups.B.map(({ kind }) => kind)).toEqual(['unsupported-property']);
+  });
+
+  it('flags layout risk only for a not-rendered warning whose subject affects layout', () => {
+    const groups = diagnosticGroups([
+      withReason('unsupported-property', 'not-rendered', { kind: 'property', property: 'transition', affectsLayout: false }),
+      withReason('unsupported-property', 'not-rendered', { kind: 'property', property: 'letter-spacing', affectsLayout: true, applied: 'paint' }),
+      withReason('unsupported-property', 'not-uss', { kind: 'property', property: 'gap', affectsLayout: true }),
+    ], [], []);
+
+    expect(groups.layoutMayDiffer).toBe(true);
+    expect(diagnosticGroups([
+      withReason('unsupported-property', 'not-rendered', { kind: 'property', property: 'transition', affectsLayout: false }),
+    ], [], []).layoutMayDiffer).toBe(false);
+    expect(diagnosticGroups([
+      withReason('unsupported-property', 'not-uss', { kind: 'property', property: 'gap', affectsLayout: true }),
+    ], [], []).layoutMayDiffer).toBe(false);
   });
 });

@@ -3,7 +3,9 @@
  * If one fails, the loop is wrong — do not edit the numbers here.
  */
 import { describe, expect, it } from 'vitest';
+import { expandTemplates, parse, TEMPLATE_DEPTH_LIMIT } from 'uxml-preview';
 import { collectImports, watchTargets } from '../src/preview/imports';
+import { importKey } from '../src/preview/protocol';
 
 const UXML = (src: string) =>
   `<ui:UXML xmlns:ui="UnityEngine.UIElements"><Style src="${src}" /><ui:VisualElement /></ui:UXML>`;
@@ -155,14 +157,14 @@ describe('collectImports', () => {
     expect(result.unresolved).toEqual([]);
   });
 
-  it('stops following imports at the round cap', async () => {
+  it('stops following imports at the core template depth limit', async () => {
     const result = await collectImports(UXML('0.uss'), undefined, async (url) => {
       const index = Number.parseInt(url, 10);
       return { text: `@import url("${index + 1}.uss");`, path: url };
     });
 
-    expect(result.rounds).toBe(16);
-    expect(result.resolved.size).toBe(16);
+    expect(result.rounds).toBe(TEMPLATE_DEPTH_LIMIT);
+    expect(result.resolved.size).toBe(TEMPLATE_DEPTH_LIMIT);
   });
 
   it('terminates when two template documents point at each other', async () => {
@@ -185,24 +187,44 @@ describe('collectImports', () => {
       }],
     ]);
     const result = await collectImports(entry, undefined, async (url, from) => files.get(JSON.stringify([url, from])) ?? null);
-    expect(result.rounds).toBeLessThan(16);
+    expect(result.rounds).toBeLessThan(TEMPLATE_DEPTH_LIMIT);
     expect(result.resolved.size).toBeGreaterThan(0);
   });
 
-  it('does not prefetch a 20-deep unique template chain that the core would still expand', async () => {
-    const entry = `<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Template name="T0" src="0.uxml" /><ui:Instance template="T0" /></ui:UXML>`;
-    const result = await collectImports(entry, undefined, async (url, from) => {
-      const index = Number.parseInt(url, 10);
-      if (Number.isNaN(index)) return null;
-      const next = index + 1;
-      return {
-        text: `<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Template name="T${next}" src="${next}.uxml" /><ui:Instance template="T${next}" /></ui:UXML>`,
-        path: `${from ?? 'entry'}->${url}`,
-      };
+  // 0.3.1: the walk goes exactly as deep as the core expands (TEMPLATE_DEPTH_LIMIT),
+  // so the host never cuts a chain the core would still follow. Written before the
+  // implementation; if one fails, the walk is wrong — do not edit the expectations.
+  const chain = async (url: string, from: string | null) => {
+    const index = Number.parseInt(url, 10);
+    if (Number.isNaN(index)) return null;
+    const next = index + 1;
+    return {
+      text: `<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Template name="T${next}" src="${next}.uxml" /><ui:Instance template="T${next}" /></ui:UXML>`,
+      path: `${from ?? 'entry'}->${url}`,
+    };
+  };
+  const chainEntry = '<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Template name="T0" src="0.uxml" /><ui:Instance template="T0" /></ui:UXML>';
+  const expansionKinds = async () => {
+    const result = await collectImports(chainEntry, undefined, chain);
+    const document = parse(chainEntry, undefined, {
+      resolveImport: (url, from) => result.resolved.get(importKey(url, from ?? null))?.text ?? null,
     });
-    expect(result.rounds).toBe(16);
-    expect(result.resolved.size).toBeLessThan(20);
-    expect(result.unresolved).toEqual([]);
+    return expandTemplates(document).warnings.map(({ kind }) => kind);
+  };
+
+  it('prefetches a 20-deep unique template chain completely', async () => {
+    const result = await collectImports(chainEntry, undefined, async (url, from) => (
+      Number.parseInt(url, 10) >= 20 ? null : chain(url, from)
+    ));
+    expect(result.resolved.size).toBe(20);
+    expect(result.unresolved).toEqual(['20.uxml']);
+    expect(result.rounds).toBeLessThan(TEMPLATE_DEPTH_LIMIT);
+  });
+
+  it('leaves a chain deeper than the limit to the core depth warning, not to a missing file', async () => {
+    const kinds = await expansionKinds();
+    expect(kinds).toContain('template-depth-exceeded');
+    expect(kinds).not.toContain('template-src-unresolved');
   });
 });
 

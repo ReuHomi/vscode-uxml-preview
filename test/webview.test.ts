@@ -696,4 +696,92 @@ describe('webview render messages', () => {
     expect(document.querySelector('#preview')!.children).toHaveLength(0);
     expect(liveNodeCount()).toBe(0);
   });
+
+  /**
+   * 0.3.1 cases, written before the implementation (core 0.5.1 `reason`/`subject`/`at`).
+   * If one fails, the implementation is wrong — do not edit the expectations here.
+   */
+  describe('0.3.1 diagnostics panel', () => {
+    const allWarnings = (): Warning[] => [...lastDocumentModel!.warnings, ...lastRender!.warnings];
+    const sheet = (uss: string) => request(
+      '<ui:UXML xmlns:ui="UnityEngine.UIElements"><Style src="s.uss" /><ui:VisualElement class="a" /><ui:Label class="a" text="x" /></ui:UXML>',
+      { 's.uss': uss },
+    );
+
+    it('lists a not-uss property as fixable, with the replacement names the core gave', async () => {
+      window.dispatchEvent(new MessageEvent('message', { data: sheet('.a { font-family: Arial; }') }));
+
+      await vi.waitFor(() => expect(allWarnings().some(({ reason }) => reason === 'not-uss')).toBe(true));
+      const warning = allWarnings().find(({ reason }) => reason === 'not-uss')!;
+      const replacements = warning.subject?.kind === 'property' ? warning.subject.replacements ?? [] : [];
+      expect(replacements.length).toBeGreaterThan(0);
+      const fixable = document.querySelector<HTMLElement>('#warnings [data-group="A"]')!;
+      expect(fixable.textContent).toContain('unsupported-property');
+      for (const name of replacements) expect(fixable.textContent).toContain(name);
+      expect(document.querySelector('#warnings [data-group="B"]')).toBeNull();
+    });
+
+    it('shows a layout notice outside the collapsed groups when a not-rendered property affects layout', async () => {
+      window.dispatchEvent(new MessageEvent('message', { data: sheet('.a { letter-spacing: 2px; }') }));
+
+      await vi.waitFor(() => expect(allWarnings().some(({ reason }) => reason === 'not-rendered')).toBe(true));
+      const warning = allWarnings().find(({ reason }) => reason === 'not-rendered')!;
+      expect(warning.subject).toEqual(expect.objectContaining({ kind: 'property', affectsLayout: true }));
+      const notice = document.querySelector<HTMLElement>('#warnings [data-layout-notice]');
+      expect(notice).not.toBeNull();
+      expect(notice!.closest('[data-group]')).toBeNull();
+      expect(notice!.parentElement).toBe(document.querySelector('#warnings > details'));
+      expect(document.querySelector('#warnings > details')!.hasAttribute('open')).toBe(true);
+    });
+
+    it('shows no layout notice when nothing not-rendered affects layout', async () => {
+      window.dispatchEvent(new MessageEvent('message', { data: sheet('.a { font-family: Arial; }') }));
+
+      await vi.waitFor(() => expect(allWarnings().some(({ reason }) => reason === 'not-uss')).toBe(true));
+      expect(allWarnings().some(({ reason, subject }) => (
+        reason === 'not-rendered' && subject?.kind === 'property' && subject.affectsLayout === true
+      ))).toBe(false);
+      expect(document.querySelector('#warnings [data-layout-notice]')).toBeNull();
+    });
+
+    it('does not count a matches-unity notice as an issue', async () => {
+      window.dispatchEvent(new MessageEvent('message', { data: sheet(':root { color: red; }') }));
+
+      await vi.waitFor(() => expect(allWarnings().some(({ reason }) => reason === 'matches-unity')).toBe(true));
+      expect(allWarnings().every(({ reason }) => reason === 'matches-unity')).toBe(true);
+      const outer = document.querySelector<HTMLDetailsElement>('#warnings > details')!;
+      expect(outer.querySelector(':scope > summary')!.textContent)
+        .toBe('1920 × 1080 · 0 unsupported · 3 known divergences');
+      expect(outer.querySelector('[data-group="D"]')!.textContent).toContain('version-dependent');
+    });
+
+    it('posts a reveal for the declaration when a warning with at is clicked', async () => {
+      const uss = '.a {\n  width: 10px;\n  font-family: Arial;\n}';
+      window.dispatchEvent(new MessageEvent('message', { data: sheet(uss) }));
+
+      await vi.waitFor(() => expect(allWarnings().some(({ reason }) => reason === 'not-uss')).toBe(true));
+      const warning = allWarnings().find(({ reason }) => reason === 'not-uss')!;
+      expect(warning.at).toEqual(expect.objectContaining({ in: 'uss' }));
+      const offset = warning.at!.span.start;
+      expect(uss.split('\n')[uss.slice(0, offset).split('\n').length - 1]).toContain('font-family');
+
+      const link = document.querySelector<HTMLElement>('#warnings [data-group="A"] [data-reveal]')!;
+      expect(link).not.toBeNull();
+      postedMessages.length = 0;
+      link.click();
+      expect(postedMessages).toEqual([{ type: 'reveal', url: 's.uss', offset }]);
+    });
+
+    it('keeps warnings without at as plain text', async () => {
+      window.dispatchEvent(new MessageEvent('message', { data: {
+        ...request('<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Label text="x" /></ui:UXML>'),
+        unresolvedImports: ['missing.uss'],
+      } }));
+
+      await vi.waitFor(() => expect(document.querySelector('#warnings [data-group="A"]')?.textContent)
+        .toContain('Unresolved dependency: missing.uss'));
+      expect(document.querySelector('#warnings [data-group="A"] [data-reveal]')).toBeNull();
+      expect(document.querySelector('#warnings [data-group="C"] [data-reveal]')).toBeNull();
+    });
+  });
 });

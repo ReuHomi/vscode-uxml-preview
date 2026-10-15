@@ -2,7 +2,7 @@
   "name": "vscode-uxml-preview",
   "displayName": "UXML Preview for Unity UI Toolkit",
   "description": "Preview composed Template/Instance UXML in VS Code without opening Unity, and catch element-name override typos Unity silently ignores.",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "publisher": "reuhomi",
   "icon": "icon.png",
   "license": "Apache-2.0",
@@ -67,7 +67,7 @@
     "verify": "npm run check:self-reference && npm run check:rules && npm run typecheck && npm run test"
   },
   "dependencies": {
-    "uxml-preview": "^0.5.0"
+    "uxml-preview": "^0.5.1"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

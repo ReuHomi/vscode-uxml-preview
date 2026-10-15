@@ -14,12 +14,12 @@ import {
   watchTargets,
 } from './imports';
 import { contentSecurityPolicy, nonce } from './csp';
-import type { AssetDiagnostic, AssetReference, ImportDiagnostic, RenderFailure, RenderRequest, WebviewMessage } from './protocol';
+import type { AssetDiagnostic, AssetReference, ImportDiagnostic, RenderFailure, RenderRequest, Reveal, WebviewMessage } from './protocol';
 import { suggestUnityProjectRoot } from './unity-project';
 
 const decoder = new TextDecoder();
 const SAVE_DEBOUNCE_MS = 75;
-const ACTIVE_STATES = new Set(['hover', 'active', 'focus', 'disabled']);
+export const ACTIVE_STATES = new Set(['hover', 'active', 'focus', 'disabled']);
 
 export class PreviewPanel implements vscode.Disposable {
   static readonly viewType = 'uxmlPreview.panel';
@@ -34,6 +34,8 @@ export class PreviewPanel implements vscode.Disposable {
   private assetRoots: readonly string[] = [];
   private activeStates: readonly string[] = [];
   private lastRequest: RenderRequest | undefined;
+  // Host-only paths for the current request; never expose disk paths to the webview.
+  private importPathsByUrl: ReadonlyMap<string, string | null> = new Map();
   private refreshTimer: ReturnType<typeof setTimeout> | undefined;
   private disposed = false;
 
@@ -198,6 +200,20 @@ export class PreviewPanel implements vscode.Disposable {
     #warnings [data-group="A"] > summary { color: var(--vscode-editorWarning-foreground); }
     #warnings ul { margin: 0; padding-left: 2em; }
     #warnings li { margin: 4px 0; overflow-wrap: anywhere; }
+    #warnings [data-layout-notice] {
+      margin: 0;
+      padding: 6px 10px;
+      color: var(--vscode-editorWarning-foreground);
+    }
+    #warnings [data-reveal] {
+      padding: 0;
+      border: 0;
+      color: var(--vscode-textLink-foreground);
+      background: transparent;
+      font: inherit;
+      text-decoration: underline;
+      cursor: pointer;
+    }
     .host-context {
       margin-top: 3px;
       padding-left: 8px;
@@ -295,6 +311,15 @@ export class PreviewPanel implements vscode.Disposable {
   }
 
   private onMessage(message: WebviewMessage): void {
+    if (message.type === 'reveal') {
+      void this.revealSource(message).catch((error: unknown) => {
+        if (!this.disposed) {
+          const detail = error instanceof Error ? error.message : String(error);
+          void vscode.window.showErrorMessage(`UXML Preview: ${detail}`);
+        }
+      });
+      return;
+    }
     if (message.type === 'asset-misses') {
       this.runAssetRoundTrip(message.references);
       return;
@@ -310,6 +335,22 @@ export class PreviewPanel implements vscode.Disposable {
     }
     if (this.lastRequest === undefined) this.runRender();
     else void this.panel.webview.postMessage(this.lastRequest);
+  }
+
+  /**
+   * Deps/Effects: reads the current import-path map, opens a text document, and
+   *               shows its core offset as an empty selection; never writes it.
+   * Ensures:      unknown or ambiguous URLs and disposed panels do nothing.
+   */
+  private async revealSource(message: Reveal): Promise<void> {
+    if (this.disposed || !Number.isInteger(message.offset) || message.offset < 0) return;
+    const filePath = message.url === null ? undefined : this.importPathsByUrl.get(message.url);
+    if (message.url !== null && filePath == null) return;
+    const uri = message.url === null ? this.uri : vscode.Uri.file(filePath!);
+    const document = await vscode.workspace.openTextDocument(uri);
+    if (this.disposed) return;
+    const position = document.positionAt(message.offset);
+    await vscode.window.showTextDocument(document, { selection: new vscode.Range(position, position) });
   }
 
   private runCanvasSettings(
@@ -474,7 +515,7 @@ export class PreviewPanel implements vscode.Disposable {
         workspaceRoot,
         async (filePath) => decoder.decode(await vscode.workspace.fs.readFile(vscode.Uri.file(filePath))),
       );
-      const { request, importPaths } = await buildRenderRequest(
+      const { request, importPaths, importPathsByUrl } = await buildRenderRequest(
         uxml,
         stylesheetReader.read,
         {
@@ -490,12 +531,14 @@ export class PreviewPanel implements vscode.Disposable {
 
       if (this.disposed) return;
       this.lastRequest = request;
+      this.importPathsByUrl = importPathsByUrl;
       this.setAssetRoots([]);
       await this.panel.webview.postMessage(request);
       if (!this.disposed) this.replaceWatchers(watchTargets(this.uri.fsPath, importPaths));
     } catch (error: unknown) {
       if (this.disposed) return;
       this.lastRequest = undefined;
+      this.importPathsByUrl = new Map();
       this.setAssetRoots([]);
       this.replaceWatchers(watchTargets(this.uri.fsPath, []));
       const failure: RenderFailure = {
@@ -524,7 +567,11 @@ export async function buildRenderRequest(
   activeStates: readonly string[] = [],
   suggestedRoot: string | null = null,
   importDiagnostics: readonly ImportDiagnostic[] = [],
-): Promise<{ request: RenderRequest; importPaths: readonly string[] }> {
+): Promise<{
+  request: RenderRequest;
+  importPaths: readonly string[];
+  importPathsByUrl: ReadonlyMap<string, string | null>;
+}> {
   const imports = await collectImports(uxml, undefined, read);
   const assetDiagnostics: AssetDiagnostic[] = suggestedRoot === null ? [] : [{
     source: 'host',
@@ -542,6 +589,7 @@ export async function buildRenderRequest(
   }
   return {
     importPaths: imports.paths,
+    importPathsByUrl: imports.pathsByUrl,
     request: {
       type: 'render',
       uxml,

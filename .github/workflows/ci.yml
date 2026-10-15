@@ -7,11 +7,16 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
+        node: [20, 22]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: '22', cache: npm }
+        with: { node-version: '${{ matrix.node }}', cache: npm }
       - run: npm ci
-      - run: npm run verify
-      - run: npm run build
+      - if: matrix.node == 20
+        run: npm test -- test/webview.test.ts
+      - if: matrix.node == 22
+        run: npm run verify
+      - if: matrix.node == 22
+        run: npm run build

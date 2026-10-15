@@ -5,6 +5,8 @@ import {
   type SourceRef,
   type Warning,
   type WarningKind,
+  type WarningReason,
+  type WarningSubject,
 } from 'uxml-preview';
 import type { AssetReference, HostDiagnostic } from '../src/preview/protocol';
 
@@ -15,8 +17,11 @@ export interface WarningLine {
   readonly sourceDocument?: string | null;
   readonly at?: SourceRef;
   readonly node?: NodeId;
-  /** Exact failed path supplied by a resolver hook, when one can be associated. */
+  readonly reason?: WarningReason;
+  readonly subject?: WarningSubject;
+  /** Exact failed path supplied by the core subject, or by a host diagnostic. */
   readonly path?: string;
+  readonly form?: AssetReference['form'];
 }
 
 type ActionableLine = WarningLine | HostDiagnostic;
@@ -39,13 +44,15 @@ export interface DiagnosticGroups {
   readonly A: DiagnosticItem[];
   readonly B: Array<WarningLine | HostDiagnostic>;
   readonly C: Array<WarningLine | DivergenceLine>;
+  readonly D: WarningLine[];
+  readonly layoutMayDiffer: boolean;
 }
 
 function assertNever(value: never): never {
   throw new Error(`Unhandled warning kind: ${String(value)}`);
 }
 
-export function diagnosticGroup(kind: WarningKind): keyof DiagnosticGroups {
+export function diagnosticGroup(kind: WarningKind): 'A' | 'B' | 'C' {
   switch (kind) {
     case 'import-unresolved':
     case 'asset-unresolved':
@@ -73,7 +80,7 @@ export function diagnosticGroup(kind: WarningKind): keyof DiagnosticGroups {
 }
 
 /**
- * Purpose: groups diagnostics by what the user can do, not by core kind.
+ * Purpose: groups diagnostics by reason first, then by the existing kind rules.
  * Ensures: preserves warning order and always appends every known divergence.
  */
 export function diagnosticGroups(
@@ -81,7 +88,12 @@ export function diagnosticGroups(
   hostDiagnostics: readonly HostDiagnostic[] = [],
   divergences: readonly KnownDivergence[] = KNOWN_DIVERGENCES,
 ): DiagnosticGroups {
-  const groups: DiagnosticGroups = { A: [], B: [], C: [] };
+  const groups: DiagnosticGroups = {
+    A: [], B: [], C: [], D: [],
+    layoutMayDiffer: lines.some(({ reason, subject }) => (
+      reason === 'not-rendered' && subject?.kind === 'property' && subject.affectsLayout === true
+    )),
+  };
   const unsupportedResources = new Set(hostDiagnostics
     .filter(({ kind, path }) => kind === 'resource-unsupported' && path !== undefined)
     .map(({ path }) => path!));
@@ -98,7 +110,19 @@ export function diagnosticGroups(
   };
 
   for (const line of lines) {
-    if (line.kind === 'asset-unresolved' && line.path !== undefined && unsupportedResources.has(line.path)) {
+    // core: reasons are an open set; unknown or absent reasons keep kind-based grouping.
+    switch (line.reason) {
+      case 'not-uss':
+      case 'invalid-value':
+        addActionable(line);
+        continue;
+      case 'matches-unity':
+        groups.D.push(line);
+        continue;
+      default:
+        break;
+    }
+    if (line.kind === 'asset-unresolved' && line.form !== 'url' && line.path !== undefined && unsupportedResources.has(line.path)) {
       groups.B.push(line);
       continue;
     }
@@ -137,19 +161,15 @@ const warningLine = (source: WarningLine['source'], warning: Warning): WarningLi
   ...(warning.sourceDocument === undefined ? {} : { sourceDocument: warning.sourceDocument }),
   ...(warning.at === undefined ? {} : { at: warning.at }),
   ...(warning.node === undefined ? {} : { node: warning.node }),
+  ...(warning.reason === undefined ? {} : { reason: warning.reason }),
+  ...(warning.subject === undefined ? {} : { subject: warning.subject }),
+  ...(warning.kind === 'import-unresolved' && warning.subject?.kind === 'import'
+    ? { path: warning.subject.url }
+    : {}),
+  ...(warning.kind === 'asset-unresolved' && warning.subject?.kind === 'asset'
+    ? { path: warning.subject.path, form: warning.subject.form }
+    : {}),
 });
-
-function pathInWarning(warning: Warning, candidates: readonly string[]): string | undefined {
-  return [...candidates]
-    .sort((left, right) => right.length - left.length)
-    .find((candidate) => warning.message.includes(candidate));
-}
-
-function assetInWarning(warning: Warning, candidates: readonly AssetReference[]): string | undefined {
-  return [...candidates]
-    .sort((left, right) => right.path.length - left.path.length)
-    .find(({ path }) => warning.message.includes(path))?.path;
-}
 
 /**
  * Purpose: flatten all warning sources without interpreting core diagnostics.
@@ -159,22 +179,11 @@ export function warningLines(
   parseWarnings: readonly Warning[],
   renderWarnings: readonly Warning[],
   unresolvedImports: readonly string[],
-  unresolvedAssets: readonly AssetReference[] = [],
+  _unresolvedAssets: readonly AssetReference[] = [],
 ): WarningLine[] {
   return [
-    ...parseWarnings.map((warning) => ({
-      ...warningLine('parse', warning),
-      ...(warning.kind === 'import-unresolved'
-        ? { path: pathInWarning(warning, unresolvedImports) }
-        : {}),
-    })),
-    ...renderWarnings.map((warning) => {
-      const asset = warning.kind === 'asset-unresolved' ? assetInWarning(warning, unresolvedAssets) : undefined;
-      return {
-        ...warningLine('render', warning),
-        ...(asset === undefined ? {} : { path: asset }),
-      };
-    }),
+    ...parseWarnings.map((warning) => warningLine('parse', warning)),
+    ...renderWarnings.map((warning) => warningLine('render', warning)),
     ...unresolvedImports.map((url) => ({
       source: 'host' as const,
       kind: 'import-unresolved' as const,

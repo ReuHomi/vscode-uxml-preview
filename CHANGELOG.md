@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.1 - 2026-10-15
+
+### Changed
+
+- Upgrade the renderer dependency to `uxml-preview@^0.5.1`.
+- Associate unresolved paths with the core's structured warning subjects.
+- Group `not-uss` and `invalid-value` warnings as fixable and show the core's
+  replacement names. Show `matches-unity` warnings under Notes without counting
+  them as issues; unknown reasons keep their existing kind-based group.
+- Show the core's layout notice when an unrendered property affects layout.
+- Let diagnostics reveal their source offset in the entry UXML or an
+  unambiguous imported stylesheet. Template diagnostics remain plain text.
+- Prefetch template dependencies up to the core's `TEMPLATE_DEPTH_LIMIT`.
+- Run webview tests on Node 20 as well as the full verification on Node 22.
+
 ## 0.3.0 - 2026-08-26
 
 ### Known limitations

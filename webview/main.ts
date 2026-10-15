@@ -4,7 +4,7 @@
  */
 import { loadLayoutEngine, parse, render } from 'uxml-preview';
 import type { RenderResult, SourceRef, UxmlDocument, Warning } from 'uxml-preview';
-import { assetKey, importKey, type AssetReference, type HostDiagnostic, type HostMessage, type RenderRequest } from '../src/preview/protocol';
+import { assetKey, importKey, type AssetReference, type HostDiagnostic, type HostMessage, type RenderRequest, type Reveal, type WebviewMessage } from '../src/preview/protocol';
 import {
   diagnosticGroups,
   warningLines,
@@ -13,7 +13,7 @@ import {
   type WarningLine,
 } from './warnings';
 
-declare function acquireVsCodeApi(): { postMessage(msg: unknown): void };
+declare function acquireVsCodeApi(): { postMessage(msg: WebviewMessage): void };
 const vscode = acquireVsCodeApi();
 const container = document.querySelector<HTMLElement>('#preview')!;
 const viewport = document.querySelector<HTMLElement>('#preview-viewport')!;
@@ -37,14 +37,49 @@ function warningLocation(at: SourceRef, documentModel: UxmlDocument): string {
   return `${at.in === 'uxml' ? 'UXML' : `USS sheet ${at.sheet + 1}`} line ${line}, column ${column}`;
 }
 
-function diagnosticItem(
+/**
+ * Deps/Effects: appends text and click handlers owned by this diagnostic DOM.
+ * Ensures:      only entry UXML or a uniquely imported USS URL can be revealed;
+ *               warnings with template provenance remain plain text.
+ */
+function appendDiagnosticLine(
+  item: HTMLElement,
   line: WarningLine | DivergenceLine | HostDiagnostic,
   projectRoot: string,
   documentModel: UxmlDocument | undefined,
-): HTMLLIElement {
-  const item = document.createElement('li');
+  imports: RenderRequest['imports'],
+): void {
   item.append(`${line.source} [${line.kind}] ${line.message}`);
   if (line.source === 'known-divergence') item.append(` — ${line.detail}`);
+  if ('reason' in line && (line.reason === 'not-uss' || line.reason === 'invalid-value')
+    && line.subject?.kind === 'property' && line.subject.replacements?.length) {
+    item.append(` — ${line.subject.replacements.join(', ')}`);
+  }
+  // core: ordinary imported USS warnings also carry sourceDocument = sheet.origin.
+  // Template offsets belong to other documents; ambiguous import URLs cannot select a file.
+  if ('at' in line && line.at !== undefined && documentModel !== undefined) {
+    const at = line.at;
+    let url: string | null | undefined;
+    if (at.in === 'uxml') {
+      if (line.sourceDocument == null) url = null;
+    } else {
+      const sheet = documentModel.sheets[at.sheet];
+      if (sheet !== undefined && typeof sheet.origin === 'string' && sheet.sourceDocumentFrom == null
+        && (line.sourceDocument == null || line.sourceDocument === sheet.origin)
+        && imports.filter((entry) => entry.url === sheet.origin).length === 1) {
+        url = sheet.origin;
+      }
+    }
+    if (url !== undefined) {
+      const message: Reveal = { type: 'reveal', url, offset: at.span.start };
+      const link = document.createElement('button');
+      link.type = 'button';
+      link.dataset.reveal = '';
+      link.textContent = 'Show source';
+      link.addEventListener('click', () => vscode.postMessage(message));
+      item.append(' ', link);
+    }
+  }
   if ('sourceDocument' in line && typeof line.sourceDocument === 'string' && line.sourceDocument !== '') {
     const source = document.createElement('div');
     source.className = 'host-context source-document';
@@ -67,6 +102,16 @@ function diagnosticItem(
       item.append(host);
     }
   }
+}
+
+function diagnosticItem(
+  line: WarningLine | DivergenceLine | HostDiagnostic,
+  projectRoot: string,
+  documentModel: UxmlDocument | undefined,
+  imports: RenderRequest['imports'],
+): HTMLLIElement {
+  const item = document.createElement('li');
+  appendDiagnosticLine(item, line, projectRoot, documentModel, imports);
   return item;
 }
 
@@ -74,13 +119,14 @@ function actionableItem(
   item: DiagnosticItem,
   projectRoot: string,
   documentModel: UxmlDocument | undefined,
+  imports: RenderRequest['imports'],
 ): HTMLLIElement {
   const [primary, ...context] = item.lines;
-  const element = diagnosticItem(primary!, projectRoot, documentModel);
+  const element = diagnosticItem(primary!, projectRoot, documentModel, imports);
   for (const line of context) {
     const host = document.createElement('div');
     host.className = 'host-context';
-    host.textContent = `${line.source} [${line.kind}] ${line.message}`;
+    appendDiagnosticLine(host, line, projectRoot, documentModel, imports);
     element.append(host);
   }
   if (item.occurrences > 1) {
@@ -99,6 +145,7 @@ function showDiagnostics(
   documentModel?: UxmlDocument,
   failure?: string,
   canvas?: { readonly width: number; readonly height: number },
+  imports: RenderRequest['imports'] = [],
 ): void {
   const groups = diagnosticGroups(lines, hostDiagnostics);
   const issueCount = groups.A.length
@@ -113,11 +160,18 @@ function showDiagnostics(
     ? `${canvas.width} × ${canvas.height} · ${groups.B.length} unsupported · ${divergenceCount} known divergences`
     : `${issueCount} ${issueCount === 1 ? 'issue' : 'issues'}`;
   outer.append(summary);
+  if (groups.layoutMayDiffer) {
+    const notice = document.createElement('p');
+    notice.dataset.layoutNotice = '';
+    notice.textContent = "this preview's coordinates may differ from Unity's";
+    outer.append(notice);
+  }
 
   const definitions = [
     ['A', 'Fixable', groups.A],
     ['B', 'Waiting for support', groups.B],
     ['C', 'Renderer differences from Unity', groups.C],
+    ['D', 'Notes', groups.D],
   ] as const;
   for (const [key, label, group] of definitions) {
     const count = group.length + (key === 'A' && failure !== undefined ? 1 : 0);
@@ -135,10 +189,10 @@ function showDiagnostics(
       list.append(item);
     }
     if (key === 'A') {
-      list.append(...groups.A.map((item) => actionableItem(item, projectRoot, documentModel)));
+      list.append(...groups.A.map((item) => actionableItem(item, projectRoot, documentModel, imports)));
     } else {
-      const linesInGroup = key === 'B' ? groups.B : groups.C;
-      list.append(...linesInGroup.map((line) => diagnosticItem(line, projectRoot, documentModel)));
+      const linesInGroup = key === 'B' ? groups.B : key === 'C' ? groups.C : groups.D;
+      list.append(...linesInGroup.map((line) => diagnosticItem(line, projectRoot, documentModel, imports)));
     }
     section.append(heading, list);
     outer.append(section);
@@ -235,6 +289,7 @@ async function renderMessage(msg: HostMessage): Promise<void> {
     documentModel,
     undefined,
     canvas,
+    msg.imports,
   );
 
   vscode.postMessage({ type: 'asset-misses', references: [...assetMisses.values()] });

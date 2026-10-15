@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   postMessage: vi.fn(async () => true),
   readFile: vi.fn(async () => new TextEncoder().encode('<ui:UXML xmlns:ui="UnityEngine.UIElements" />')),
   update: vi.fn(async () => undefined),
+  openTextDocument: vi.fn(async (uri: unknown) => ({ uri, positionAt: (offset: number) => ({ line: 7, character: offset }) })),
+  showTextDocument: vi.fn(async () => undefined),
   settings: {} as Record<string, unknown>,
   optionWrites: 0,
   webview: undefined as any,
@@ -28,6 +30,8 @@ vi.mock('vscode', () => {
     },
     FileType: { File: 1 },
     RelativePattern: class {},
+    Range: class { constructor(readonly start: unknown, readonly end: unknown) {} },
+    Selection: class { constructor(readonly anchor: unknown, readonly active: unknown) {} },
     ViewColumn: { Beside: 2 },
     ConfigurationTarget: { Workspace: 2 },
     window: {
@@ -59,9 +63,11 @@ vi.mock('vscode', () => {
         return mocks.panel;
       }),
       showErrorMessage: vi.fn(),
+      showTextDocument: mocks.showTextDocument,
     },
     workspace: {
       fs: { readFile: mocks.readFile },
+      openTextDocument: mocks.openTextDocument,
       getConfiguration: () => ({
         get: (key: string, fallback: unknown) => mocks.settings[key] ?? fallback,
         update: mocks.update,
@@ -82,7 +88,8 @@ vi.mock('vscode', () => {
 });
 
 import * as vscode from 'vscode';
-import { buildRenderRequest, PreviewPanel } from '../src/preview/panel';
+import { USS_STATES } from 'uxml-preview';
+import { ACTIVE_STATES, buildRenderRequest, PreviewPanel } from '../src/preview/panel';
 
 const request: RenderRequest = {
   type: 'render',
@@ -107,6 +114,8 @@ beforeEach(() => {
   mocks.postMessage.mockClear();
   mocks.readFile.mockClear();
   mocks.update.mockClear();
+  mocks.openTextDocument.mockClear();
+  mocks.showTextDocument.mockClear();
   mocks.settings = {};
   mocks.optionWrites = 0;
   const uri = vscode.Uri.file('C:\\fixture\\07-moved-asset.uxml');
@@ -236,5 +245,36 @@ describe('PreviewPanel controls', () => {
   it('declares fitToPanel off by default', () => {
     const packageJson = JSON.parse(readFileSync('package.json', 'utf8'));
     expect(packageJson.contributes.configuration.properties['uxmlPreview.canvas.fitToPanel'].default).toBe(false);
+  });
+});
+
+/**
+ * 0.3.1 cases, written before the implementation.
+ * If one fails, the implementation is wrong — do not edit the expectations here.
+ */
+describe('0.3.1 host', () => {
+  it('only offers active states the core knows', () => {
+    expect(ACTIVE_STATES.size).toBeGreaterThan(0);
+    for (const state of ACTIVE_STATES) expect(USS_STATES).toContain(state);
+  });
+
+  it('reveals an offset in the previewed UXML when the webview asks for url null', async () => {
+    mocks.messageHandler!({ type: 'reveal', url: null, offset: 42 });
+
+    await vi.waitFor(() => expect(mocks.showTextDocument).toHaveBeenCalledTimes(1));
+    expect(mocks.openTextDocument).toHaveBeenCalledWith(preview.uri);
+    const [document, options] = mocks.showTextDocument.mock.calls[0] as unknown as [any, any];
+    expect(document.uri).toBe(preview.uri);
+    expect(options.selection.start).toEqual({ line: 7, character: 42 });
+    expect(options.selection.end).toEqual({ line: 7, character: 42 });
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it('ignores a reveal for a url this preview did not resolve', async () => {
+    mocks.messageHandler!({ type: 'reveal', url: 'never-imported.uss', offset: 3 });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(mocks.openTextDocument).not.toHaveBeenCalled();
+    expect(mocks.showTextDocument).not.toHaveBeenCalled();
   });
 });

@@ -69,6 +69,7 @@ export interface AssetDiagnostic {
   readonly source: 'host';
   readonly kind: 'guid-index' | 'guid-index-skipped' | 'asset-path-stale' | 'guid-unresolved' | 'project-root-suggested' | 'package-cache-skipped' | 'resource-ambiguous' | 'resource-unresolved' | 'resource-unsupported';
   readonly message: string;
+  readonly reason?: undefined;
   /** Failed path this explains. No path means panel-wide host information. */
   readonly path?: string;
 }
@@ -77,6 +78,7 @@ export interface ImportDiagnostic {
   readonly source: 'host';
   readonly kind: 'import-base-ambiguous';
   readonly message: string;
+  readonly reason?: undefined;
   /** Parent URL whose disk path could not be chosen safely. */
   readonly path: string;
 }
@@ -111,5 +113,13 @@ export interface ActiveStates {
   readonly activeStates: readonly string[];
 }
 
+/** Webview to host: reveal a core source offset without changing the document. */
+export interface Reveal {
+  readonly type: 'reveal';
+  /** Null identifies the previewed UXML; other URLs must be resolved imports. */
+  readonly url: string | null;
+  readonly offset: number;
+}
+
 export type HostMessage = RenderRequest | RenderFailure;
-export type WebviewMessage = ReadyNotice | AssetMisses | CanvasSettings | ActiveStates;
+export type WebviewMessage = ReadyNotice | AssetMisses | CanvasSettings | ActiveStates | Reveal;
