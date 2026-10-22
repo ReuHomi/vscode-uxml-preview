@@ -504,8 +504,8 @@ describe('webview render messages', () => {
       <ui:UXML xmlns:ui="UnityEngine.UIElements">
         <ui:VisualElement style="width: 360px; padding: 12px; background-color: #2b2b2b;">
           <ui:Label text="Supported label" style="color: #ffffff;" />
-          <ui:Toggle label="Unsupported control" />
-          <ui:Slider low-value="0" high-value="10" />
+          <ui:DropdownField label="Unsupported control" />
+          <ui:MinMaxSlider low-value="0" high-value="10" />
           <ui:VisualElement style="height: 40px; background-color: #4f8fd9; rotate: 45deg;" />
         </ui:VisualElement>
       </ui:UXML>
@@ -540,7 +540,7 @@ describe('webview render messages', () => {
       `<ui:UXML xmlns:ui="UnityEngine.UIElements">
         <ui:Template name="A" src="cycle-a.uxml" />
         <ui:Instance template="A" />
-        <ui:Toggle />
+        <ui:DropdownField />
       </ui:UXML>`,
       [
         { url: 'cycle-a.uxml', from: null, text: '<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Template name="B" src="cycle-b.uxml" /><ui:Instance template="B" /></ui:UXML>' },
@@ -564,9 +564,9 @@ describe('webview render messages', () => {
     window.dispatchEvent(new MessageEvent('message', { data: request(`
       <ui:UXML xmlns:ui="UnityEngine.UIElements">
         <ui:VisualElement>
-          <ui:Toggle />
+          <ui:DropdownField />
           <ui:VisualElement style="height: 20px;" />
-          <ui:Slider />
+          <ui:MinMaxSlider />
         </ui:VisualElement>
       </ui:UXML>
     `) }));
@@ -722,7 +722,7 @@ describe('webview render messages', () => {
     });
 
     it('shows a layout notice outside the collapsed groups when a not-rendered property affects layout', async () => {
-      window.dispatchEvent(new MessageEvent('message', { data: sheet('.a { letter-spacing: 2px; }') }));
+      window.dispatchEvent(new MessageEvent('message', { data: sheet('.a { -unity-text-auto-size: best-fit 8px 40px; }') }));
 
       await vi.waitFor(() => expect(allWarnings().some(({ reason }) => reason === 'not-rendered')).toBe(true));
       const warning = allWarnings().find(({ reason }) => reason === 'not-rendered')!;
