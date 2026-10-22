@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.4.0 - 2026-10-22
+
+### Changed
+
+- Upgrade to `uxml-preview@^0.7.1` to align painted and measured fonts, correcting host-font inheritance that made text disagree with its layout box.
+- Use `uxml-preview@^0.7.0`, which renders 15 control types and defaults to Unity's runtime theme.
+- Add `uxmlPreview.theme` (`runtime` by default, or `editor`) and a toolbar choice
+  between Game screen and Editor screen. The selection reflects the core's actual rendered theme.
+- Show a white/gray transparency checkerboard behind runtime previews so dark text stays legible.
+- Explain the new default once per user on their first preview, with an action to use the editor theme.
+- Show `font-fallback` warnings under Renderer differences from Unity, count them as issues,
+  and show the layout notice when the core reports `affectsLayout: true`.
+- Keep unknown warning reasons and rich-text `not-rendered` warnings in their existing kind-based groups.
+- Update obsolete diagnostic test inputs without changing their assertions.
+
+### Known limitations
+
+- Project font resolution is not implemented. Core font diagnostics remain visible.
+- TextField has no caret or selection display; RepeatButton is plain text; scrollbars are not drawn.
+- F5 visual checks and Marketplace/Open VSX publication remain manual.
+
 ## 0.3.1 - 2026-10-15
 
 ### Changed

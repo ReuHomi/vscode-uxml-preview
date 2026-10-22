@@ -321,3 +321,27 @@ describe('diagnostic groups by reason', () => {
     ], [], []).layoutMayDiffer).toBe(false);
   });
 });
+
+describe('0.4.0 warning contracts', () => {
+  it.each([true, false, undefined])('groups font fallback in C with affectsLayout=%s', (affectsLayout) => {
+    const warning: WarningLine = {
+      source: 'render', kind: 'unsupported-property', reason: 'font-fallback', message: 'Core text',
+      subject: { kind: 'property', property: '-unity-font-definition', affectsLayout },
+    };
+    const groups = diagnosticGroups([warning], [], []);
+    expect(groups.C).toEqual([warning]);
+    expect(groups.B).toEqual([]);
+    expect(groups.layoutMayDiffer).toBe(affectsLayout === true);
+  });
+
+  it.each([
+    ['malformed', 'A'], ['unsupported-property', 'B'], ['version-dependent', 'C'],
+  ] as const)('keeps a future reason on %s in %s', (kind, group) => {
+    const warning: WarningLine = {
+      source: 'render', kind, reason: 'future-core-reason' as WarningLine['reason'], message: 'Unchanged',
+    };
+    const groups = diagnosticGroups([warning], [], []);
+    expect(group === 'A' ? groups.A[0]?.lines : groups[group]).toEqual([warning]);
+    expect(groups.layoutMayDiffer).toBe(false);
+  });
+});

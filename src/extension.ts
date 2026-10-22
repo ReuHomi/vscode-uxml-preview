@@ -2,13 +2,14 @@ import * as vscode from 'vscode';
 import { PreviewPanel } from './preview/panel';
 
 /**
- * Purpose:      register the two commands and nothing else.
+ * Purpose:      register preview commands and explain the runtime-theme migration once.
  * Deps/Effects: `context.subscriptions` owns both command registrations and
  *               disposes them when the extension deactivates.
  * Ensures:      no rendering, no parsing, no style logic lives in the host.
  */
 export function activate(context: vscode.ExtensionContext): void {
-  const open = (column: vscode.ViewColumn) => (resource?: vscode.Uri) => {
+  let noticeSeen = context.globalState.get<boolean>('runtimeThemeNotice070Seen', false);
+  const open = (column: vscode.ViewColumn) => async (resource?: vscode.Uri) => {
     const doc = vscode.window.activeTextEditor?.document;
     const uri = resource ?? doc?.uri;
     const fileName = resource?.fsPath ?? doc?.fileName;
@@ -23,6 +24,23 @@ export function activate(context: vscode.ExtensionContext): void {
       return;
     }
     PreviewPanel.open(context, uri, column);
+    if (noticeSeen) return;
+    // Claim before awaiting storage so simultaneous opens cannot show two notices.
+    noticeSeen = true;
+    try {
+      await context.globalState.update('runtimeThemeNotice070Seen', true);
+      const editor = 'Use previous view (editor theme)';
+      const response = await vscode.window.showInformationMessage(
+        'UXML Preview now shows your UI as it looks in a running game. Text and buttons look larger than before — that is expected and matches Unity at runtime.',
+        editor, 'OK',
+      );
+      if (response === editor) {
+        // The panel's configuration subscription redraws every affected open preview.
+        await vscode.workspace.getConfiguration('uxmlPreview', uri).update('theme', 'editor', vscode.ConfigurationTarget.Global);
+      }
+    } catch (error: unknown) {
+      void vscode.window.showErrorMessage(`UXML Preview: ${error instanceof Error ? error.message : String(error)}`);
+    }
   };
 
   context.subscriptions.push(

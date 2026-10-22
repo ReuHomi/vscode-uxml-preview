@@ -7,6 +7,7 @@
 /** Host to webview. */
 export interface RenderRequest {
   readonly type: 'render';
+  readonly theme: 'runtime' | 'editor';
   readonly uxml: string;
   readonly uss: undefined;
   /** Every `(url, from)` lookup the core will ask for is already here. */
@@ -113,6 +114,11 @@ export interface ActiveStates {
   readonly activeStates: readonly string[];
 }
 
+export interface ThemeSettings {
+  readonly type: 'theme-settings';
+  readonly theme: RenderRequest['theme'];
+}
+
 /** Webview to host: reveal a core source offset without changing the document. */
 export interface Reveal {
   readonly type: 'reveal';
@@ -122,4 +128,4 @@ export interface Reveal {
 }
 
 export type HostMessage = RenderRequest | RenderFailure;
-export type WebviewMessage = ReadyNotice | AssetMisses | CanvasSettings | ActiveStates | Reveal;
+export type WebviewMessage = ReadyNotice | AssetMisses | CanvasSettings | ActiveStates | ThemeSettings | Reveal;

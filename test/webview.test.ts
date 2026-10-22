@@ -37,6 +37,7 @@ function request(
 ): RenderRequest {
   return {
     type: 'render',
+    theme: 'runtime',
     uxml,
     uss: undefined,
     imports: Array.isArray(imports)
@@ -97,6 +98,7 @@ describe('webview render messages', () => {
         <input id="canvas-width" type="number">
         <input id="canvas-height" type="number">
         <input id="fit-to-panel" type="checkbox">
+        <select id="preview-theme"><option value="runtime">Game screen</option><option value="editor">Editor screen</option></select>
         <button data-width="800" data-height="600"></button>
         <fieldset id="state-controls">
           <label><input name="active-state" type="checkbox" value="hover"><span>hover</span></label>
@@ -125,6 +127,61 @@ describe('webview render messages', () => {
   afterAll(() => {
     window.dispatchEvent(new Event('unload'));
     Reflect.deleteProperty(globalThis, 'acquireVsCodeApi');
+  });
+
+  it.each(['editor', 'runtime'] as const)('passes %s to core and shows the rendered theme', async (theme) => {
+    window.dispatchEvent(new MessageEvent('message', { data: {
+      ...request('<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Button /></ui:UXML>'), theme,
+    } }));
+    await vi.waitFor(() => expect(document.querySelector('#preview')!.getAttribute('data-theme')).toBe(theme));
+    expect(lastRenderOptions!.theme).toBe(theme);
+    expect(lastRender!.theme).toBe(theme);
+    expect(document.querySelector<HTMLSelectElement>('#preview-theme')!.value).toBe(theme);
+    if (theme === 'editor') {
+      const warning = lastRender!.warnings.find(({ reason }) => reason === 'version-dependent')!;
+      expect(warning).toBeDefined();
+      expect(document.querySelector('#warnings [data-group="C"]')!.textContent).toContain(warning.message);
+    }
+  });
+
+  it('shows the actual core fallback theme rather than an invalid requested theme', async () => {
+    document.querySelector('#preview')!.setAttribute('data-theme', 'editor');
+    window.dispatchEvent(new MessageEvent('message', { data: {
+      ...request('<ui:UXML xmlns:ui="UnityEngine.UIElements" />'), theme: 'future',
+    } }));
+    await vi.waitFor(() => expect(document.querySelector('#preview')!.getAttribute('data-theme')).toBe('runtime'));
+    expect(lastRender!.warnings.some(({ reason }) => reason === 'invalid-value')).toBe(true);
+    expect(document.querySelector<HTMLSelectElement>('#preview-theme')!.value).toBe('runtime');
+  });
+
+  it.each(['editor', 'runtime'])('posts the %s toolbar selection to the host', (theme) => {
+    const select = document.querySelector<HTMLSelectElement>('#preview-theme')!;
+    select.value = theme;
+    select.dispatchEvent(new Event('change'));
+    expect(postedMessages).toContainEqual({ type: 'theme-settings', theme });
+  });
+
+  it('counts real Hangul font fallback in C and exposes layout risk without rewriting its message', async () => {
+    window.dispatchEvent(new MessageEvent('message', { data: request(
+      '<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Label text="한글" /></ui:UXML>',
+    ) }));
+    await vi.waitFor(() => expect(document.querySelector('#warnings [data-group="C"]')?.textContent).toContain('fallback font'));
+    const warning = lastRender!.warnings.find(({ reason }) => reason === 'font-fallback')!;
+    expect(warning).toMatchObject({ kind: 'unsupported-property', subject: { missingGlyphs: 'hangul', affectsLayout: true } });
+    expect(document.querySelector('#warnings [data-group="C"] li')!.textContent).toBe(`render [${warning.kind}] ${warning.message}`);
+    expect(document.querySelector('#warnings [data-group="B"]')).toBeNull();
+    expect(document.querySelector('#warnings > details > summary')!.textContent).toBe('1 issue');
+    expect(document.querySelector('#warnings [data-layout-notice]')).not.toBeNull();
+  });
+
+  it('keeps real rich text not-rendered warnings in their kind-based group', async () => {
+    window.dispatchEvent(new MessageEvent('message', { data: request(
+      '<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Label text="&lt;b&gt;Bold&lt;/b&gt;" /></ui:UXML>',
+    ) }));
+    await vi.waitFor(() => expect(document.querySelector('#warnings [data-group="B"]')).not.toBeNull());
+    const warning = lastRender!.warnings.find(({ reason }) => reason === 'not-rendered')!;
+    expect(warning).toBeDefined();
+    expect(document.querySelector('#warnings [data-group="B"]')!.textContent).toContain(warning.message);
   });
 
   it('shows asset-unresolved from the render result', async () => {
@@ -504,8 +561,8 @@ describe('webview render messages', () => {
       <ui:UXML xmlns:ui="UnityEngine.UIElements">
         <ui:VisualElement style="width: 360px; padding: 12px; background-color: #2b2b2b;">
           <ui:Label text="Supported label" style="color: #ffffff;" />
-          <ui:Toggle label="Unsupported control" />
-          <ui:Slider low-value="0" high-value="10" />
+          <ui:DropdownField label="Unsupported control" />
+          <ui:MinMaxSlider low-value="0" high-value="10" />
           <ui:VisualElement style="height: 40px; background-color: #4f8fd9; rotate: 45deg;" />
         </ui:VisualElement>
       </ui:UXML>
@@ -540,7 +597,7 @@ describe('webview render messages', () => {
       `<ui:UXML xmlns:ui="UnityEngine.UIElements">
         <ui:Template name="A" src="cycle-a.uxml" />
         <ui:Instance template="A" />
-        <ui:Toggle />
+        <ui:DropdownField />
       </ui:UXML>`,
       [
         { url: 'cycle-a.uxml', from: null, text: '<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Template name="B" src="cycle-b.uxml" /><ui:Instance template="B" /></ui:UXML>' },
@@ -564,9 +621,9 @@ describe('webview render messages', () => {
     window.dispatchEvent(new MessageEvent('message', { data: request(`
       <ui:UXML xmlns:ui="UnityEngine.UIElements">
         <ui:VisualElement>
-          <ui:Toggle />
+          <ui:DropdownField />
           <ui:VisualElement style="height: 20px;" />
-          <ui:Slider />
+          <ui:MinMaxSlider />
         </ui:VisualElement>
       </ui:UXML>
     `) }));
@@ -722,7 +779,7 @@ describe('webview render messages', () => {
     });
 
     it('shows a layout notice outside the collapsed groups when a not-rendered property affects layout', async () => {
-      window.dispatchEvent(new MessageEvent('message', { data: sheet('.a { letter-spacing: 2px; }') }));
+      window.dispatchEvent(new MessageEvent('message', { data: sheet('.a { -unity-text-auto-size: best-fit 8px 40px; }') }));
 
       await vi.waitFor(() => expect(allWarnings().some(({ reason }) => reason === 'not-rendered')).toBe(true));
       const warning = allWarnings().find(({ reason }) => reason === 'not-rendered')!;
