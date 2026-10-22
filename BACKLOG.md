@@ -1,5 +1,15 @@
 # Backlog
 
+## 캔버스 설정이 사용자 프로젝트에 파일을 만든다
+
+- 뷰어가 사용자 프로젝트에 .vscode/settings.json을 만든다 — 캔버스 크기,
+  0.4.0 이전부터. 프로젝트별 기억 여부는 사람이 정한다.
+  툴바의 캔버스 크기·Fit to panel 변경은 `ConfigurationTarget.Workspace`로
+  저장된다(`src/preview/panel.ts`). 0.4.0에서 테마 저장은 같은 문제로 반려된 뒤
+  `ConfigurationTarget.Global`로 바뀌었다(7ea57a2). 캔버스를 Global로 옮기면
+  프로젝트마다 다른 해상도를 기억하지 못하고, Workspace로 두면 "뷰어는 파일을
+  쓰지 않는다"와 어긋난다.
+
 ## 0.3.0 이후 Template / Instance 후속
 
 - 템플릿 내부 경고(`sourceDocument`가 있는 경고)의 클릭 이동은 0.3.1에서 뺐다.
