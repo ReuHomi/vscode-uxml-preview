@@ -72,6 +72,10 @@
     "configuration": {
       "title": "UXML Preview",
       "properties": {
+        "uxmlPreview.theme": {
+          "type": "string", "enum": ["runtime", "editor"], "default": "runtime",
+          "description": "Game screen (runtime) or editor screen theme. The toolbar shows the theme actually drawn."
+        },
         "uxmlPreview.canvas.width": {
           "type": "number",
           "default": 1920,

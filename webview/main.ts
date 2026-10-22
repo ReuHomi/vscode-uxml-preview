@@ -21,6 +21,7 @@ const warningPanel = document.querySelector<HTMLElement>('#warnings')!;
 const widthInput = document.querySelector<HTMLInputElement>('#canvas-width')!;
 const heightInput = document.querySelector<HTMLInputElement>('#canvas-height')!;
 const fitInput = document.querySelector<HTMLInputElement>('#fit-to-panel')!;
+const themeInput = document.querySelector<HTMLSelectElement>('#preview-theme')!;
 const presetInputs = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-width][data-height]'));
 const stateInputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="active-state"]'));
 const canvasSize = document.querySelector<HTMLOutputElement>('#canvas-size')!;
@@ -272,6 +273,7 @@ async function renderMessage(msg: HostMessage): Promise<void> {
     resolveImport: (url, from) => imports.get(importKey(url, from)) ?? null,
   });
   const result = render(documentModel, container, {
+    theme: msg.theme,
     size: canvas,
     activeStates: new Set(msg.activeStates),
     states: msg.states,
@@ -283,6 +285,8 @@ async function renderMessage(msg: HostMessage): Promise<void> {
     },
   });
   current = result;
+  themeInput.value = result.theme;
+  container.dataset.theme = result.theme;
 
   markUnsupportedControls(result.warnings, result);
   showDiagnostics(
@@ -333,6 +337,10 @@ for (const input of [widthInput, heightInput]) {
 }
 fitInput.addEventListener('change', () => {
   if (lastRequest !== undefined) postCanvasSettings(lastRequest.canvas, fitInput.checked);
+});
+themeInput.addEventListener('change', () => {
+  const theme = themeInput.value;
+  if (theme === 'runtime' || theme === 'editor') vscode.postMessage({ type: 'theme-settings', theme });
 });
 for (const preset of presetInputs) {
   preset.addEventListener('click', () => postCanvasSettings({

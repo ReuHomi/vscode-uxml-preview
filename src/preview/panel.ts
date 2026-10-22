@@ -54,7 +54,8 @@ export class PreviewPanel implements vscode.Disposable {
       panel.onDidDispose(() => this.release()),
       panel.webview.onDidReceiveMessage((message: WebviewMessage) => this.onMessage(message)),
       vscode.workspace.onDidChangeConfiguration((event) => {
-        if (event.affectsConfiguration('uxmlPreview.canvas', this.uri)) this.renderOptions();
+        if (event.affectsConfiguration('uxmlPreview.canvas', this.uri)
+          || event.affectsConfiguration('uxmlPreview.theme', this.uri)) this.renderOptions();
       }),
     );
 
@@ -143,7 +144,13 @@ export class PreviewPanel implements vscode.Disposable {
     #control-bar input[type="checkbox"]:checked::before { visibility: visible; }
     #state-controls input:checked + span { color: var(--vscode-textLink-foreground); }
     #canvas-size { margin-left: auto; padding: 3px 7px; color: var(--vscode-descriptionForeground); white-space: nowrap; }
-    :where(input, button, summary):focus-visible {
+    #control-bar select {
+      color: var(--vscode-dropdown-foreground);
+      background: var(--vscode-dropdown-background);
+      border: 1px solid var(--vscode-dropdown-border);
+      padding: 3px;
+    }
+    :where(input, button, select, summary):focus-visible {
       outline: 1px solid var(--vscode-focusBorder);
       outline-offset: 2px;
     }
@@ -169,6 +176,12 @@ export class PreviewPanel implements vscode.Disposable {
     body.vscode-high-contrast-light #preview {
       background-image: none;
       box-shadow: inset 0 0 0 2px var(--vscode-contrastBorder);
+    }
+    #preview[data-theme="runtime"] {
+      background-color: white;
+      background-image: conic-gradient(rgb(204, 204, 204) 25%, white 0 50%, rgb(204, 204, 204) 0 75%, white 0);
+      background-position: 0 0;
+      background-size: 16px 16px;
     }
     #warning-panel {
       position: fixed;
@@ -249,6 +262,10 @@ export class PreviewPanel implements vscode.Disposable {
       <button type="button" data-width="800" data-height="600">800×600</button>
     </fieldset>
     <label class="control-group"><input id="fit-to-panel" type="checkbox"> Fit to panel</label>
+    <label class="control-group">Theme <select id="preview-theme">
+      <option value="runtime">Game screen</option>
+      <option value="editor">Editor screen</option>
+    </select></label>
     <fieldset id="state-controls" class="control-group" aria-label="Active pseudo-class states">
       <label><input name="active-state" type="checkbox" value="hover"><span>hover</span></label>
       <label><input name="active-state" type="checkbox" value="active"><span>active</span></label>
@@ -311,6 +328,14 @@ export class PreviewPanel implements vscode.Disposable {
   }
 
   private onMessage(message: WebviewMessage): void {
+    if (message.type === 'theme-settings') {
+      if (message.theme !== 'runtime' && message.theme !== 'editor') return;
+      void vscode.workspace.getConfiguration('uxmlPreview', this.uri).update('theme', message.theme)
+        .then(undefined, (error: unknown) => {
+          if (!this.disposed) void vscode.window.showErrorMessage(`UXML Preview: ${error instanceof Error ? error.message : String(error)}`);
+        });
+      return;
+    }
     if (message.type === 'reveal') {
       void this.revealSource(message).catch((error: unknown) => {
         if (!this.disposed) {
@@ -374,6 +399,7 @@ export class PreviewPanel implements vscode.Disposable {
     const config = vscode.workspace.getConfiguration('uxmlPreview', this.uri);
     const next: RenderRequest = {
       ...request,
+      theme: config.get<RenderRequest['theme']>('theme', 'runtime'),
       canvas: {
         width: config.get<number>('canvas.width', 1920),
         height: config.get<number>('canvas.height', 1080),
@@ -527,6 +553,7 @@ export class PreviewPanel implements vscode.Disposable {
         this.activeStates,
         suggestedRoot,
         stylesheetReader.diagnostics,
+        config.get<RenderRequest['theme']>('theme', 'runtime'),
       );
 
       if (this.disposed) return;
@@ -567,6 +594,7 @@ export async function buildRenderRequest(
   activeStates: readonly string[] = [],
   suggestedRoot: string | null = null,
   importDiagnostics: readonly ImportDiagnostic[] = [],
+  theme: RenderRequest['theme'] = 'runtime',
 ): Promise<{
   request: RenderRequest;
   importPaths: readonly string[];
@@ -592,6 +620,7 @@ export async function buildRenderRequest(
     importPathsByUrl: imports.pathsByUrl,
     request: {
       type: 'render',
+      theme,
       uxml,
       uss: undefined,
       imports: [...imports.resolved.values()],
