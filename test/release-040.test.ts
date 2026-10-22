@@ -7,9 +7,9 @@ describe('0.4.0 release contract', () => {
     const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
     const lock = JSON.parse(readFileSync('package-lock.json', 'utf8'));
     expect(pkg.version).toBe('0.4.0');
-    expect(pkg.dependencies['uxml-preview']).toBe('^0.7.0');
+    expect(pkg.dependencies['uxml-preview']).toBe('^0.7.1');
     expect(lock.packages[''].version).toBe(pkg.version);
-    expect(lock.packages['node_modules/uxml-preview'].version).toBe('0.7.0');
+    expect(lock.packages['node_modules/uxml-preview'].version).toBe('0.7.1');
   });
 
   it.each(['README.md', 'README.ko.md'])('documents every supported control and theme in %s', (file) => {
