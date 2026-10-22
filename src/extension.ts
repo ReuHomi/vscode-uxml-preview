@@ -31,7 +31,7 @@ export function activate(context: vscode.ExtensionContext): void {
       await context.globalState.update('runtimeThemeNotice070Seen', true);
       const editor = 'Use previous view (editor theme)';
       const response = await vscode.window.showInformationMessage(
-        'UXML Preview now renders game screens by default. Text and buttons appearing larger than before is normal. This matches how they appear inside your Unity game.',
+        'UXML Preview now shows your UI as it looks in a running game. Text and buttons look larger than before — that is expected and matches Unity at runtime.',
         editor, 'OK',
       );
       if (response === editor) {

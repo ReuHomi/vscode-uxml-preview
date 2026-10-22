@@ -52,7 +52,7 @@ beforeEach(() => {
 
 describe('0.4.0 first preview notice', () => {
   const uri = { fsPath: 'C:\\project\\screen.uxml' };
-  const text = 'UXML Preview now renders game screens by default. Text and buttons appearing larger than before is normal. This matches how they appear inside your Unity game.';
+  const text = 'UXML Preview now shows your UI as it looks in a running game. Text and buttons look larger than before — that is expected and matches Unity at runtime.';
   const editor = 'Use previous view (editor theme)';
   const open = () => mocks.handlers.get('uxmlPreview.showPreview')!(uri);
 
