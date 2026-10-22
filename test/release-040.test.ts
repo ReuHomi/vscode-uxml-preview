@@ -27,7 +27,7 @@ describe('0.4.0 release contract', () => {
     expect(supportedControlNames()).not.toContain('DropdownField');
   });
 
-  it('leaves the 0.4.0 changelog date unset for human release', () => {
-    expect(readFileSync('CHANGELOG.md', 'utf8')).toMatch(/^## 0\.4\.0 \(draft\)$/m);
+  it('records the approved 0.4.0 release date', () => {
+    expect(readFileSync('CHANGELOG.md', 'utf8')).toMatch(/^## 0\.4\.0 - 2026-10-22$/m);
   });
 });
