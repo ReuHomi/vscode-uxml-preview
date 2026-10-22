@@ -1,0 +1,148 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+<!-- Core 0.7.0 visual inspection fixture. Use a 1920 x 1080 canvas, Fit to panel off. -->
+<ui:VisualElement name="control-gallery" style="width: 1920px; padding: 20px;">
+<ui:Label name="sample-88" text="CORE 0.7.0 / CONTROL FIELD GUIDE" style="font-size: 28px; -unity-font-style: bold;" />
+<ui:Label name="sample-89" text="10 new controls | Switch Game screen / Editor screen | 1920 x 1080 | Static rendering, not interactive widgets" style="font-size: 14px; margin-bottom: 16px;" />
+<ui:VisualElement style="flex-direction: row;">
+<ui:VisualElement style="width: 364px; flex-shrink: 0; margin-right: 12px;">
+<ui:VisualElement style="height: 430px; flex-shrink: 0; margin-bottom: 12px; padding: 12px; border-width: 1px; border-color: #778899; border-radius: 6px;">
+<ui:Label name="sample-06" text="01 / GroupBox" style="font-size: 19px; -unity-font-style: bold;" />
+<ui:Label name="sample-07" text="Title, nested group, untitled group, disabled subtree." style="font-size: 11px; white-space: normal; margin-bottom: 8px;" />
+<ui:GroupBox text="Audio" style="margin-bottom: 10px; padding: 6px;" >
+<ui:Toggle name="sample-01" label="Music" value="true" />
+<ui:Toggle name="sample-02" label="Effects" value="false" />
+</ui:GroupBox>
+<ui:GroupBox text="Parent" style="margin-bottom: 10px; padding: 6px;" >
+<ui:GroupBox text="Child" style="margin-bottom: 10px; padding: 6px;" >
+<ui:Label name="sample-03" text="Nested title and content" />
+</ui:GroupBox>
+</ui:GroupBox>
+<ui:GroupBox text="" style="margin-bottom: 10px; padding: 6px;" >
+<ui:Label name="sample-04" text="Group without title" />
+</ui:GroupBox>
+<ui:GroupBox text="Disabled group" style="margin-bottom: 10px; padding: 6px;" enabled="false">
+<ui:Toggle name="sample-05" label="Locked" value="true" />
+</ui:GroupBox>
+</ui:VisualElement>
+<ui:VisualElement style="height: 430px; flex-shrink: 0; margin-bottom: 12px; padding: 12px; border-width: 1px; border-color: #778899; border-radius: 6px;">
+<ui:Label name="sample-13" text="02 / Box" style="font-size: 19px; -unity-font-style: bold;" />
+<ui:Label name="sample-14" text="Default box appearance; nested and author-styled boxes." style="font-size: 11px; white-space: normal; margin-bottom: 8px;" />
+<ui:Box style="height: 95px; padding: 8px; margin-bottom: 12px;">
+<ui:Label name="sample-08" text="Default theme Box" />
+<ui:Button name="sample-09" text="Reference Button" />
+</ui:Box>
+<ui:Box style="height: 110px; padding: 10px; margin-bottom: 12px;">
+<ui:Label name="sample-10" text="Outer box" />
+<ui:Box style="padding: 8px;">
+<ui:Label name="sample-11" text="Nested box" />
+</ui:Box>
+</ui:Box>
+<ui:Box style="height: 90px; border-width: 3px; border-color: #278c99; border-radius: 12px; padding: 10px;">
+<ui:Label name="sample-12" text="Author border + radius" />
+</ui:Box>
+</ui:VisualElement>
+</ui:VisualElement>
+<ui:VisualElement style="width: 364px; flex-shrink: 0; margin-right: 12px;">
+<ui:VisualElement style="height: 430px; flex-shrink: 0; margin-bottom: 12px; padding: 12px; border-width: 1px; border-color: #778899; border-radius: 6px;">
+<ui:Label name="sample-22" text="03 / TextField" style="font-size: 19px; -unity-font-style: bold;" />
+<ui:Label name="sample-23" text="Label, placeholder, value, mask, multiline, disabled." style="font-size: 11px; white-space: normal; margin-bottom: 8px;" />
+<ui:TextField name="sample-15" label="Player" value="Ada Lovelace" />
+<ui:TextField name="sample-16" label="Empty" placeholder-text="Enter a player name" />
+<ui:TextField name="sample-17" value="No label / value only" />
+<ui:TextField name="sample-18" label="Password" value="preview-demo" is-password-field="true" />
+<ui:TextField name="sample-19" label="Notes" multiline="true" value="Line one&#10;Line two with preserved   spaces&#10;Line three" style="height: 95px; margin-top: 8px;" />
+<ui:TextField name="sample-20" label="Locked" value="Read-only visual sample" enabled="false" style="margin-top: 8px;" />
+<ui:Label name="sample-21" text="Static preview: no caret, selection or editing." style="font-size: 12px; margin-top: 8px;" />
+</ui:VisualElement>
+<ui:VisualElement style="height: 430px; flex-shrink: 0; margin-bottom: 12px; padding: 12px; border-width: 1px; border-color: #778899; border-radius: 6px;">
+<ui:Label name="sample-31" text="04 / TextElement" style="font-size: 19px; -unity-font-style: bold;" />
+<ui:Label name="sample-32" text="Plain text, wrapping, explicit breaks, font fallback." style="font-size: 11px; white-space: normal; margin-bottom: 8px;" />
+<ui:TextElement name="sample-24" text="Plain TextElement / 14px" />
+<ui:TextElement name="sample-25" text="Large text / 24px" style="font-size: 24px; margin-top: 12px;" />
+<ui:TextElement name="sample-26" text="This longer sentence wraps inside the available width. Compare the line breaks and height between the two themes." style="white-space: normal; margin-top: 12px;" />
+<ui:TextElement name="sample-27" text="Explicit line one&#10;Explicit line two&#10;Explicit line three" style="margin-top: 12px;" />
+<ui:TextElement name="sample-28" text="SupercalifragilisticexpialidociousWithoutAnySpacesAtAll" style="width: 180px; white-space: normal; margin-top: 12px;" />
+<ui:TextElement name="sample-29" text="한글 폴백 확인: 게임 화면과 에디터 화면" style="white-space: normal; margin-top: 12px;" />
+<ui:Label name="sample-30" text="Hangul intentionally produces a font-fallback notice." style="font-size: 12px; margin-top: 8px;" />
+</ui:VisualElement>
+</ui:VisualElement>
+<ui:VisualElement style="width: 364px; flex-shrink: 0; margin-right: 12px;">
+<ui:VisualElement style="height: 430px; flex-shrink: 0; margin-bottom: 12px; padding: 12px; border-width: 1px; border-color: #778899; border-radius: 6px;">
+<ui:Label name="sample-40" text="05 / Slider" style="font-size: 19px; -unity-font-style: bold;" />
+<ui:Label name="sample-41" text="Float ranges; min/mid/max, inverse, vertical, disabled." style="font-size: 11px; white-space: normal; margin-bottom: 8px;" />
+<ui:Slider name="sample-33" label="Minimum" low-value="0" high-value="100" value="0" />
+<ui:Slider name="sample-34" label="Middle" low-value="0" high-value="100" value="50" show-input-field="true" />
+<ui:Slider name="sample-35" label="Maximum" low-value="0" high-value="100" value="100" />
+<ui:Slider name="sample-36" label="Inverted" low-value="0" high-value="100" value="25" inverted="true" />
+<ui:Slider name="sample-37" label="Disabled" low-value="0" high-value="100" value="65" enabled="false" />
+<ui:VisualElement style="flex-direction: row; height: 145px; margin-top: 10px;">
+<ui:Slider name="sample-38" direction="Vertical" low-value="0" high-value="100" value="25" style="width: 120px; height: 140px;" />
+<ui:Slider name="sample-39" direction="Vertical" low-value="0" high-value="100" value="75" inverted="true" style="width: 120px; height: 140px;" />
+</ui:VisualElement>
+</ui:VisualElement>
+<ui:VisualElement style="height: 430px; flex-shrink: 0; margin-bottom: 12px; padding: 12px; border-width: 1px; border-color: #778899; border-radius: 6px;">
+<ui:Label name="sample-49" text="06 / SliderInt" style="font-size: 19px; -unity-font-style: bold;" />
+<ui:Label name="sample-50" text="Integer values, negative range, clamping and inversion." style="font-size: 11px; white-space: normal; margin-bottom: 8px;" />
+<ui:SliderInt name="sample-42" label="Zero" low-value="0" high-value="10" value="0" show-input-field="true" style="margin-bottom: 12px;" />
+<ui:SliderInt name="sample-43" label="Middle" low-value="0" high-value="10" value="5" show-input-field="true" style="margin-bottom: 12px;" />
+<ui:SliderInt name="sample-44" label="Maximum" low-value="0" high-value="10" value="10" show-input-field="true" style="margin-bottom: 12px;" />
+<ui:SliderInt name="sample-45" label="Negative" low-value="-10" high-value="10" value="-4" show-input-field="true" style="margin-bottom: 12px;" />
+<ui:SliderInt name="sample-46" label="Clamped high" low-value="0" high-value="10" value="25" show-input-field="true" style="margin-bottom: 12px;" />
+<ui:SliderInt name="sample-47" label="Inverted" low-value="0" high-value="10" value="3" show-input-field="true" style="margin-bottom: 12px;" inverted="true" />
+<ui:SliderInt name="sample-48" label="Disabled" low-value="0" high-value="10" value="7" show-input-field="true" style="margin-bottom: 12px;" enabled="false" />
+</ui:VisualElement>
+</ui:VisualElement>
+<ui:VisualElement style="width: 364px; flex-shrink: 0; margin-right: 12px;">
+<ui:VisualElement style="height: 430px; flex-shrink: 0; margin-bottom: 12px; padding: 12px; border-width: 1px; border-color: #778899; border-radius: 6px;">
+<ui:Label name="sample-59" text="07 / Toggle" style="font-size: 19px; -unity-font-style: bold;" />
+<ui:Label name="sample-60" text="Label versus text; true/false and disabled combinations." style="font-size: 11px; white-space: normal; margin-bottom: 8px;" />
+<ui:Toggle name="sample-51" label="Setting" text="Unchecked" value="false" style="margin-bottom: 12px;" />
+<ui:Toggle name="sample-52" label="Setting" text="Checked" value="true" style="margin-bottom: 12px;" />
+<ui:Toggle name="sample-53" text="Text without a label" value="true" style="margin-bottom: 12px;" />
+<ui:Toggle name="sample-54" label="Label only" value="false" style="margin-bottom: 12px;" />
+<ui:Toggle name="sample-55" text="Disabled / off" value="false" enabled="false" style="margin-bottom: 12px;" />
+<ui:Toggle name="sample-56" text="Disabled / on" value="true" enabled="false" style="margin-bottom: 12px;" />
+<ui:Toggle name="sample-57" text="Mixed-case True" value="True" />
+<ui:Label name="sample-58" text="Use toolbar hover / focus / disabled for forced states." style="font-size: 12px; margin-top: 8px;" />
+</ui:VisualElement>
+<ui:VisualElement style="height: 430px; flex-shrink: 0; margin-bottom: 12px; padding: 12px; border-width: 1px; border-color: #778899; border-radius: 6px;">
+<ui:Label name="sample-68" text="08 / RadioButton" style="font-size: 19px; -unity-font-style: bold;" />
+<ui:Label name="sample-69" text="Selected/unselected; labels; disabled state pairs." style="font-size: 11px; white-space: normal; margin-bottom: 8px;" />
+<ui:GroupBox text="Quality preset" style="margin-bottom: 10px; padding: 6px;" >
+<ui:RadioButton name="sample-61" text="Low" value="false" />
+<ui:RadioButton name="sample-62" text="Medium" value="true" />
+<ui:RadioButton name="sample-63" text="High" value="false" />
+</ui:GroupBox>
+<ui:RadioButton name="sample-64" label="Mode" text="Labeled radio" value="true" style="margin-bottom: 12px;" />
+<ui:RadioButton name="sample-65" text="Disabled / off" value="false" enabled="false" style="margin-bottom: 12px;" />
+<ui:RadioButton name="sample-66" text="Disabled / on" value="true" enabled="false" />
+<ui:Label name="sample-67" text="Static values: clicking does not change the group." style="font-size: 12px; margin-top: 8px;" />
+</ui:VisualElement>
+</ui:VisualElement>
+<ui:VisualElement style="width: 364px; flex-shrink: 0; margin-right: 12px;">
+<ui:VisualElement style="height: 430px; flex-shrink: 0; margin-bottom: 12px; padding: 12px; border-width: 1px; border-color: #778899; border-radius: 6px;">
+<ui:Label name="sample-77" text="09 / ProgressBar" style="font-size: 19px; -unity-font-style: bold;" />
+<ui:Label name="sample-78" text="Empty, partial, full, clamped; custom range and title." style="font-size: 11px; white-space: normal; margin-bottom: 8px;" />
+<ui:ProgressBar name="sample-70" title="Empty / 0" low-value="0" high-value="100" value="0" style="height: 30px; margin-bottom: 12px;" />
+<ui:ProgressBar name="sample-71" title="Quarter / 25" low-value="0" high-value="100" value="25" style="height: 30px; margin-bottom: 12px;" />
+<ui:ProgressBar name="sample-72" title="Half / 50" low-value="0" high-value="100" value="50" style="height: 30px; margin-bottom: 12px;" />
+<ui:ProgressBar name="sample-73" title="Full / 100" low-value="0" high-value="100" value="100" style="height: 30px; margin-bottom: 12px;" />
+<ui:ProgressBar name="sample-74" title="Clamped / 140" low-value="0" high-value="100" value="140" style="height: 30px; margin-bottom: 12px;" />
+<ui:ProgressBar name="sample-75" title="Range 20..80 / 40" low-value="20" high-value="80" value="40" style="height: 30px; margin-bottom: 12px;" />
+<ui:ProgressBar name="sample-76" title="Disabled / 65" low-value="0" high-value="100" value="65" style="height: 30px; margin-bottom: 12px;" enabled="false" />
+</ui:VisualElement>
+<ui:VisualElement style="height: 430px; flex-shrink: 0; margin-bottom: 12px; padding: 12px; border-width: 1px; border-color: #778899; border-radius: 6px;">
+<ui:Label name="sample-86" text="10 / RepeatButton" style="font-size: 19px; -unity-font-style: bold;" />
+<ui:Label name="sample-87" text="Plain text, not a Button skin. Compare the reference." style="font-size: 11px; white-space: normal; margin-bottom: 8px;" />
+<ui:RepeatButton name="sample-79" text="Default RepeatButton" />
+<ui:Button name="sample-80" text="Regular Button reference" style="margin-top: 10px; margin-bottom: 12px;" />
+<ui:RepeatButton name="sample-81" text="Large repeat / 24px" style="font-size: 24px; margin-bottom: 12px;" />
+<ui:RepeatButton name="sample-82" text="This longer RepeatButton text wraps to the available width." style="white-space: normal; margin-bottom: 12px;" />
+<ui:RepeatButton name="sample-83" text="Disabled RepeatButton" enabled="false" style="margin-bottom: 12px;" />
+<ui:RepeatButton name="sample-84" text="Author border and padding" style="border-width: 2px; border-color: #278c99; padding: 12px; border-radius: 6px;" />
+<ui:Label name="sample-85" text="No repeating click behavior in this static viewer." style="font-size: 12px; margin-top: 8px;" />
+</ui:VisualElement>
+</ui:VisualElement>
+</ui:VisualElement>
+</ui:VisualElement>
+</ui:UXML>

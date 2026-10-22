@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.0 (draft)
+## 0.4.0 - 2026-10-22
 
 ### Changed
 
