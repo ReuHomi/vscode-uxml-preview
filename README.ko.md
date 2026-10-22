@@ -2,6 +2,8 @@
 
 # Unity UI Toolkit용 UXML Preview
 
+버전 **0.4.0**은 **uxml-preview ^0.7.0**을 사용한다.
+
 Unity를 열지 않고 VS Code에서 Template/Instance로 조립된 UXML을 미리 보고,
 Unity가 조용히 무시하는 `element-name` 오타를 짚는다. 레이아웃은 UI Toolkit이 사용하는 레이아웃 엔진 Yoga를 쓰는
 [`uxml-preview`](https://github.com/ReuHomi/uxml-preview)가 계산한다. 이 확장은
@@ -9,7 +11,11 @@ Unity가 조용히 무시하는 `element-name` 오타를 짚는다. 레이아웃
 
 ## 그리는 것과 그리지 못하는 것
 
-현재 `VisualElement`, `Label`, `Button`, `Image`, `ScrollView`를 지원한다.
+현재 `VisualElement`, `Label`, `Button`, `Image`, `ScrollView`, `GroupBox`, `Box`,
+`TextField`, `Slider`, `SliderInt`, `Toggle`, `RadioButton`, `ProgressBar`,
+`TextElement`, `RepeatButton`의 15종을 지원한다.
+TextField의 커서·선택 표시는 그리지 않고, RepeatButton은 버튼 모양이 아닌 맨 글자로
+보이며, 스크롤바는 그리지 않는다.
 그 밖의 컨트롤은 평범한 상자로 대체하고 진단 패널에 표시한다. 지원하지 못한
 내용을 조용히 숨기지 않는다.
 
@@ -55,16 +61,10 @@ Unity는 import 중 `style` AttributeOverride를 무시하므로 미리보기에
 
 ## 측정된 레이아웃 값
 
-Unity 6000.0.40f1과 비교한 **레이아웃 값 676개 중 660개가 일치했다**. 676개는
-요소 169개의 `x`, `y`, `width`, `height` 값이다. 이 수치는 해당 케이스 집합에서
-Yoga가 계산한 좌표를 비교한 것이며, 컨트롤 지원 범위나 완성된 화면 전체를
-뜻하지 않는다. 케이스, 환경, 허용 오차, 제외 조건은 코어의
+레이아웃 값 일치는 좌표 비교이며 컨트롤 지원 범위나 완성된 화면 전체를 뜻하지 않는다.
+테마·코호트별 현행 값과 케이스, 환경, 허용 오차, 제외 조건은 코어의
 [정확도 문서](https://github.com/ReuHomi/uxml-preview/blob/main/docs/accuracy.md)에
 있다.
-
-별도 Unity 6000.0.40f1 Template/Instance 코호트에서는 **렌더 케이스 11개,
-요소 55개의 좌표 220개 중 200개가 일치했다**. 불일치 20개는 모두 기존의
-브라우저/Unity 텍스트 메트릭 원인이며, 위 기본 컨트롤 수치와 합산하지 않는다.
 
 ## 미리보기 열기
 
@@ -88,6 +88,18 @@ UXML 문서나 해석에 성공한 임포트 스타일시트를 저장하면 미
 
 ## 설정
 
+기본 **Game screen**(`runtime`, 게임 화면)은 Unity 런타임 패널의 기본 테마다.
+글자와 버튼이 예전보다 크게 보일 수 있다. 투명한 패널 뒤에는 흰색·회색 체크무늬를
+깔아 VS Code 어두운 테마에서도 어두운 글자가 보이게 한다.
+도구막대의 **Editor screen**(`editor`, 에디터 화면)을 고르면 설정
+`uxmlPreview.theme`에도 저장된다. 선택 표시는 코어가 실제로 그린 테마를 따른다.
+에디터 테마도 예전 코어 버전과 완전히 같지는 않다.
+
+처음 미리보기를 열 때 한 번 안내하며 에디터 테마로 바꾸는 버튼을 제공한다.
+강제로 켠 `disabled` 상태는 더 이상 흐리게 하지 않으며, 작성한 `enabled="false"`는
+여전히 흐리게 한다. 글꼴 폴백은 렌더러 차이로 세고, 코어가 좌표에 영향을 준다고
+알리면 레이아웃 안내를 표시한다. 프로젝트 글꼴 해석은 아직 지원하지 않는다.
+
 `uxmlPreview.projectRoot`는 `Assets`, `Packages`, `ProjectSettings`가 들어 있는
 Unity 프로젝트 디렉터리다. `project://` 경로, `/Assets` 경로, 패키지 경로,
 그리고 기록된 에셋 경로가 낡았을 때 GUID 폴백에 사용한다. UXML 파일이 속한
@@ -96,6 +108,7 @@ Unity 프로젝트 디렉터리다. `project://` 경로, `/Assets` 경로, 패�
 
 | 설정 | 기본값 | 용도 |
 |---|---:|---|
+| `uxmlPreview.theme` | `runtime` | 게임 화면(`runtime`) 또는 에디터 화면(`editor`). |
 | `uxmlPreview.canvas.width` | `1920` | 고정 루트 폭(픽셀). |
 | `uxmlPreview.canvas.height` | `1080` | 고정 루트 높이(픽셀). |
 | `uxmlPreview.canvas.fitToPanel` | `false` | 고정 크기 대신 미리보기의 가용 영역을 사용한다. |

@@ -2,6 +2,8 @@
 
 # UXML Preview for Unity UI Toolkit
 
+Version **0.4.0** uses **uxml-preview ^0.7.0**.
+
 Preview composed Template/Instance UXML in VS Code without opening Unity, and
 catch `element-name` override typos that Unity silently ignores. Layout is calculated by
 [`uxml-preview`](https://github.com/ReuHomi/uxml-preview) with Yoga, the layout
@@ -10,8 +12,11 @@ preview, and shows what the core renderer produced.
 
 ## What it renders — and what it does not
 
-The renderer supports `VisualElement`, `Label`, `Button`, `Image`, and
-`ScrollView`. Other controls are replaced by plain boxes and reported in the
+The renderer supports 15 controls: `VisualElement`, `Label`, `Button`, `Image`,
+`ScrollView`, `GroupBox`, `Box`, `TextField`, `Slider`, `SliderInt`, `Toggle`,
+`RadioButton`, `ProgressBar`, `TextElement`, and `RepeatButton`.
+TextField does not show a caret or selection; RepeatButton is plain text, not a
+button shape; scrollbars are not drawn. Other controls are replaced by plain boxes and reported in the
 diagnostics panel; unsupported content is not silently hidden.
 
 `Template` declarations and `Instance` uses are composed, including nested
@@ -62,17 +67,10 @@ Packages are resolved only from `<projectRoot>/Packages`; Unity's
 
 ## Measured layout values
 
-Against Unity 6000.0.40f1, **660 of 676 compared layout values matched**. The
-676 values are `x`, `y`, `width`, and `height` for 169 elements. This measures
-Yoga's layout coordinates for that case set, not control coverage or the full
-painted image. See the core's
+Layout-value agreement measures coordinates, not control coverage or the full
+painted image. Current results are separated by theme and cohort in the core's
 [accuracy document](https://github.com/ReuHomi/uxml-preview/blob/main/docs/accuracy.en.md)
-for the cases, environment, tolerance, and exclusions.
-
-A separate Unity 6000.0.40f1 Template/Instance cohort matched **200 of 220
-coordinate values across 55 elements in 11 rendered cases**. All 20 differences
-are the existing browser/Unity text-metric cause; this cohort is not combined
-with the base-control figure above.
+with the cases, environment, tolerance, and exclusions.
 
 ## Open a preview
 
@@ -98,6 +96,18 @@ the preview in the control bar.
 
 ## Settings
 
+The default **Game screen** (`runtime`) theme uses Unity's runtime panel defaults.
+Text and buttons can be larger than before. Its transparent background is shown
+as a white/gray checkerboard, keeping the dark text visible in VS Code dark themes.
+Choose **Editor screen** (`editor`) in the toolbar for the editor theme. The choice
+is saved as `uxmlPreview.theme`; the toolbar shows the theme the core actually drew.
+The editor theme is not an exact reproduction of older core versions.
+
+The first preview shows a one-time explanation with an editor-theme action.
+Forced `disabled` states no longer dim elements; authored `enabled="false"` still does.
+Font fallback warnings count as renderer differences; a layout notice appears when
+the core says coordinates may differ. Project fonts are not resolved by this extension.
+
 `uxmlPreview.projectRoot` is the Unity project directory containing `Assets`,
 `Packages`, and `ProjectSettings`. It is used for `project://` paths, `/Assets`
 paths, package paths, and GUID fallback after a written asset path has gone
@@ -106,6 +116,7 @@ Unity project root. When it is empty, that workspace folder is used.
 
 | Setting | Default | Purpose |
 |---|---:|---|
+| `uxmlPreview.theme` | `runtime` | Game screen (`runtime`) or editor screen (`editor`). |
 | `uxmlPreview.canvas.width` | `1920` | Fixed root width in pixels. |
 | `uxmlPreview.canvas.height` | `1080` | Fixed root height in pixels. |
 | `uxmlPreview.canvas.fitToPanel` | `false` | Use the available preview area instead of the fixed size. |
