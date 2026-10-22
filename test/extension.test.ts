@@ -5,6 +5,8 @@ const mocks = vi.hoisted(() => ({
   activeDocument: undefined as { fileName: string; uri: unknown } | undefined,
   handlers: new Map<string, (...args: unknown[]) => unknown>(),
   information: vi.fn(),
+  error: vi.fn(),
+  update: vi.fn(async () => undefined),
   open: vi.fn(),
 }));
 
@@ -21,19 +23,80 @@ vi.mock('vscode', () => ({
       return mocks.activeDocument === undefined ? undefined : { document: mocks.activeDocument };
     },
     showInformationMessage: mocks.information,
+    showErrorMessage: mocks.error,
   },
+  workspace: { getConfiguration: () => ({ update: mocks.update }) },
 }));
 
 vi.mock('../src/preview/panel', () => ({ PreviewPanel: { open: mocks.open } }));
 
 import { activate } from '../src/extension';
 
+let stored: Map<string, unknown>;
+let context: any;
+
 beforeEach(() => {
   mocks.activeDocument = undefined;
   mocks.handlers.clear();
-  mocks.information.mockClear();
+  mocks.information.mockReset().mockResolvedValue(undefined);
+  mocks.error.mockClear();
+  mocks.update.mockReset().mockResolvedValue(undefined);
   mocks.open.mockClear();
-  activate({ subscriptions: [] } as any);
+  stored = new Map();
+  context = { subscriptions: [], globalState: {
+    get: (key: string) => stored.get(key),
+    update: vi.fn(async (key: string, value: unknown) => { stored.set(key, value); }),
+  } };
+  activate(context);
+});
+
+describe('0.4.0 first preview notice', () => {
+  const uri = { fsPath: 'C:\\project\\screen.uxml' };
+  const text = 'UXML Preview now renders game screens by default. Text and buttons appearing larger than before is normal. This matches how they appear inside your Unity game.';
+  const editor = 'Use previous view (editor theme)';
+  const open = () => mocks.handlers.get('uxmlPreview.showPreview')!(uri);
+
+  it('shows the exact notice once on a fresh installation and persists it across activation', async () => {
+    await open();
+    expect(mocks.information).toHaveBeenCalledWith(text, editor, 'OK');
+    expect(context.globalState.update).toHaveBeenCalledWith('runtimeThemeNotice070Seen', true);
+    activate(context);
+    await open();
+    expect(mocks.information).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not repeat the notice for an existing user who saw it', async () => {
+    stored.set('runtimeThemeNotice070Seen', true);
+    activate(context);
+    await open();
+    expect(mocks.information).not.toHaveBeenCalled();
+    expect(mocks.open).toHaveBeenCalled();
+  });
+
+  it('does not duplicate the notice when two previews open before a response', async () => {
+    await Promise.all([open(), open()]);
+    expect(mocks.open).toHaveBeenCalledTimes(2);
+    expect(mocks.information).toHaveBeenCalledTimes(1);
+  });
+
+  it('saves editor when the previous-view button is chosen', async () => {
+    mocks.information.mockResolvedValue(editor);
+    await open();
+    expect(mocks.update).toHaveBeenCalledWith('theme', 'editor');
+  });
+
+  it.each(['OK', undefined])('keeps the theme when the notice response is %s', async (response) => {
+    mocks.information.mockResolvedValue(response);
+    await open();
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it('reports a failed theme save without rejecting the command', async () => {
+    mocks.information.mockResolvedValue(editor);
+    mocks.update.mockRejectedValueOnce(new Error('settings unavailable'));
+    await open();
+    expect(mocks.error).toHaveBeenCalledWith('UXML Preview: settings unavailable');
+  });
 });
 
 describe('command entry points', () => {
