@@ -127,6 +127,29 @@ describe('webview render messages', () => {
     Reflect.deleteProperty(globalThis, 'acquireVsCodeApi');
   });
 
+  it('counts real Hangul font fallback in C and exposes layout risk without rewriting its message', async () => {
+    window.dispatchEvent(new MessageEvent('message', { data: request(
+      '<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Label text="한글" /></ui:UXML>',
+    ) }));
+    await vi.waitFor(() => expect(document.querySelector('#warnings [data-group="C"]')?.textContent).toContain('fallback font'));
+    const warning = lastRender!.warnings.find(({ reason }) => reason === 'font-fallback')!;
+    expect(warning).toMatchObject({ kind: 'unsupported-property', subject: { missingGlyphs: 'hangul', affectsLayout: true } });
+    expect(document.querySelector('#warnings [data-group="C"] li')!.textContent).toBe(`render [${warning.kind}] ${warning.message}`);
+    expect(document.querySelector('#warnings [data-group="B"]')).toBeNull();
+    expect(document.querySelector('#warnings > details > summary')!.textContent).toBe('1 issue');
+    expect(document.querySelector('#warnings [data-layout-notice]')).not.toBeNull();
+  });
+
+  it('keeps real rich text not-rendered warnings in their kind-based group', async () => {
+    window.dispatchEvent(new MessageEvent('message', { data: request(
+      '<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Label text="&lt;b&gt;Bold&lt;/b&gt;" /></ui:UXML>',
+    ) }));
+    await vi.waitFor(() => expect(document.querySelector('#warnings [data-group="B"]')).not.toBeNull());
+    const warning = lastRender!.warnings.find(({ reason }) => reason === 'not-rendered')!;
+    expect(warning).toBeDefined();
+    expect(document.querySelector('#warnings [data-group="B"]')!.textContent).toContain(warning.message);
+  });
+
   it('shows asset-unresolved from the render result', async () => {
     window.dispatchEvent(new MessageEvent('message', { data: request(
       '<ui:UXML xmlns:ui="UnityEngine.UIElements"><Style src="05-asset.uss" /><ui:VisualElement class="tile" /></ui:UXML>',
