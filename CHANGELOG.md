@@ -4,6 +4,7 @@
 
 ### Changed
 
+- Upgrade to `uxml-preview@^0.7.1` to align painted and measured fonts, correcting host-font inheritance that made text disagree with its layout box.
 - Use `uxml-preview@^0.7.0`, which renders 15 control types and defaults to Unity's runtime theme.
 - Add `uxmlPreview.theme` (`runtime` by default, or `editor`) and a toolbar choice
   between Game screen and Editor screen. The selection reflects the core's actual rendered theme.
