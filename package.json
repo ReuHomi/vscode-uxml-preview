@@ -6,52 +6,97 @@
   "publisher": "reuhomi",
   "icon": "icon.png",
   "license": "Apache-2.0",
-  "repository": { "type": "git", "url": "https://github.com/ReuHomi/vscode-uxml-preview.git" },
-  "bugs": { "url": "https://github.com/ReuHomi/vscode-uxml-preview/issues" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ReuHomi/vscode-uxml-preview.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ReuHomi/vscode-uxml-preview/issues"
+  },
   "homepage": "https://github.com/ReuHomi/vscode-uxml-preview#readme",
-  "galleryBanner": { "color": "#102F52", "theme": "dark" },
-  "engines": { "vscode": "^1.90.0" },
-  "categories": ["Visualization"],
-  "keywords": ["uxml", "uss", "unity", "ui-toolkit", "preview"],
+  "galleryBanner": {
+    "color": "#102F52",
+    "theme": "dark"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Visualization"
+  ],
+  "keywords": [
+    "uxml",
+    "uss",
+    "unity",
+    "ui-toolkit",
+    "preview"
+  ],
   "main": "./dist/extension.js",
   "activationEvents": [],
   "contributes": {
     "commands": [
-      { "command": "uxmlPreview.showPreview", "title": "UXML Preview: Open Preview", "icon": "$(open-preview)" },
-      { "command": "uxmlPreview.showPreviewToSide", "title": "UXML Preview: Open Preview to the Side", "icon": "$(open-preview)" }
+      {
+        "command": "uxmlPreview.showPreview",
+        "title": "UXML Preview: Open Preview",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "uxmlPreview.showPreviewToSide",
+        "title": "UXML Preview: Open Preview to the Side",
+        "icon": "$(open-preview)"
+      }
     ],
     "keybindings": [
-      { "command": "uxmlPreview.showPreviewToSide", "key": "ctrl+shift+v", "mac": "cmd+shift+v", "when": "resourceExtname == .uxml" }
+      {
+        "command": "uxmlPreview.showPreviewToSide",
+        "key": "ctrl+shift+v",
+        "mac": "cmd+shift+v",
+        "when": "resourceExtname == .uxml"
+      }
     ],
     "menus": {
       "editor/title": [
-        { "command": "uxmlPreview.showPreviewToSide", "when": "resourceExtname == .uxml", "group": "navigation" }
+        {
+          "command": "uxmlPreview.showPreviewToSide",
+          "when": "resourceExtname == .uxml",
+          "group": "navigation"
+        }
       ],
       "explorer/context": [
-        { "command": "uxmlPreview.showPreviewToSide", "when": "resourceExtname == .uxml" }
+        {
+          "command": "uxmlPreview.showPreviewToSide",
+          "when": "resourceExtname == .uxml"
+        }
       ]
     },
     "configuration": {
       "title": "UXML Preview",
       "properties": {
         "uxmlPreview.canvas.width": {
-          "type": "number", "default": 1920, "minimum": 1,
+          "type": "number",
+          "default": 1920,
+          "minimum": 1,
           "description": "Root element width in pixels. A fixed number by default: a canvas that follows the panel size makes the same file lay out differently for different people."
         },
         "uxmlPreview.canvas.height": {
-          "type": "number", "default": 1080, "minimum": 1,
+          "type": "number",
+          "default": 1080,
+          "minimum": 1,
           "description": "Root element height in pixels."
         },
         "uxmlPreview.canvas.fitToPanel": {
-          "type": "boolean", "default": false,
+          "type": "boolean",
+          "default": false,
           "description": "Follow the preview panel size instead of the fixed width/height. Off by default on purpose — layouts with little slack flip on a few pixels of difference."
         },
         "uxmlPreview.projectRoot": {
-          "type": "string", "default": "",
+          "type": "string",
+          "default": "",
           "description": "Unity project root used to resolve project:// paths and GUID references. Empty means the workspace folder containing the file."
         },
         "uxmlPreview.states": {
-          "type": "object", "default": {},
+          "type": "object",
+          "default": {},
           "description": "Pseudo-class states keyed by USS selector, e.g. { \"#SubmitButton\": [\"hover\"] }. No UI in this version — see AGENTS.md, ponytail exception 1."
         }
       }
@@ -67,7 +112,7 @@
     "verify": "npm run check:self-reference && npm run check:rules && npm run typecheck && npm run test"
   },
   "dependencies": {
-    "uxml-preview": "^0.5.1"
+    "uxml-preview": "^0.7.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
