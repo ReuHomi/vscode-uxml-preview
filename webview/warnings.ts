@@ -91,7 +91,7 @@ export function diagnosticGroups(
   const groups: DiagnosticGroups = {
     A: [], B: [], C: [], D: [],
     layoutMayDiffer: lines.some(({ reason, subject }) => (
-      reason === 'not-rendered' && subject?.kind === 'property' && subject.affectsLayout === true
+      (reason === 'not-rendered' || reason === 'font-fallback') && subject?.kind === 'property' && subject.affectsLayout === true
     )),
   };
   const unsupportedResources = new Set(hostDiagnostics
@@ -118,6 +118,9 @@ export function diagnosticGroups(
         continue;
       case 'matches-unity':
         groups.D.push(line);
+        continue;
+      case 'font-fallback':
+        groups.C.push(line);
         continue;
       default:
         break;
