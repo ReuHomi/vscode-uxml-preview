@@ -36,7 +36,7 @@ export function activate(context: vscode.ExtensionContext): void {
       );
       if (response === editor) {
         // The panel's configuration subscription redraws every affected open preview.
-        await vscode.workspace.getConfiguration('uxmlPreview', uri).update('theme', 'editor');
+        await vscode.workspace.getConfiguration('uxmlPreview', uri).update('theme', 'editor', vscode.ConfigurationTarget.Global);
       }
     } catch (error: unknown) {
       void vscode.window.showErrorMessage(`UXML Preview: ${error instanceof Error ? error.message : String(error)}`);

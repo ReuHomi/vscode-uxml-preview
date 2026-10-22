@@ -33,7 +33,7 @@ vi.mock('vscode', () => {
     Range: class { constructor(readonly start: unknown, readonly end: unknown) {} },
     Selection: class { constructor(readonly anchor: unknown, readonly active: unknown) {} },
     ViewColumn: { Beside: 2 },
-    ConfigurationTarget: { Workspace: 2 },
+    ConfigurationTarget: { Global: 1, Workspace: 2 },
     window: {
       createWebviewPanel: vi.fn((_viewType, _title, _column, initialOptions) => {
         let options = initialOptions;
@@ -193,7 +193,7 @@ describe('PreviewPanel controls', () => {
 
   it.each(['runtime', 'editor'])('persists the %s toolbar selection', async (theme) => {
     mocks.messageHandler!({ type: 'theme-settings', theme });
-    await vi.waitFor(() => expect(mocks.update).toHaveBeenCalledWith('theme', theme));
+    await vi.waitFor(() => expect(mocks.update).toHaveBeenCalledWith('theme', theme, vscode.ConfigurationTarget.Global));
   });
 
   it('rejects unknown toolbar themes at the host boundary', () => {

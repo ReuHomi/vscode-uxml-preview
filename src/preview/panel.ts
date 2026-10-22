@@ -330,7 +330,7 @@ export class PreviewPanel implements vscode.Disposable {
   private onMessage(message: WebviewMessage): void {
     if (message.type === 'theme-settings') {
       if (message.theme !== 'runtime' && message.theme !== 'editor') return;
-      void vscode.workspace.getConfiguration('uxmlPreview', this.uri).update('theme', message.theme)
+      void vscode.workspace.getConfiguration('uxmlPreview', this.uri).update('theme', message.theme, vscode.ConfigurationTarget.Global)
         .then(undefined, (error: unknown) => {
           if (!this.disposed) void vscode.window.showErrorMessage(`UXML Preview: ${error instanceof Error ? error.message : String(error)}`);
         });

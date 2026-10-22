@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('vscode', () => ({
   ViewColumn: { Active: 1, Beside: 2 },
+  ConfigurationTarget: { Global: 1 },
   commands: {
     registerCommand: (id: string, handler: (...args: unknown[]) => unknown) => {
       mocks.handlers.set(id, handler);
@@ -30,6 +31,7 @@ vi.mock('vscode', () => ({
 
 vi.mock('../src/preview/panel', () => ({ PreviewPanel: { open: mocks.open } }));
 
+import { ConfigurationTarget } from 'vscode';
 import { activate } from '../src/extension';
 
 let stored: Map<string, unknown>;
@@ -82,7 +84,7 @@ describe('0.4.0 first preview notice', () => {
   it('saves editor when the previous-view button is chosen', async () => {
     mocks.information.mockResolvedValue(editor);
     await open();
-    expect(mocks.update).toHaveBeenCalledWith('theme', 'editor');
+    expect(mocks.update).toHaveBeenCalledWith('theme', 'editor', ConfigurationTarget.Global);
   });
 
   it.each(['OK', undefined])('keeps the theme when the notice response is %s', async (response) => {
