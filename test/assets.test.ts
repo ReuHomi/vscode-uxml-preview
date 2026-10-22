@@ -19,6 +19,7 @@ const url = (assetPath: string): AssetReference => ({ path: assetPath, form: 'ur
 function request(projectRoot = ''): RenderRequest {
   return {
     type: 'render',
+    theme: 'runtime',
     uxml: '<ui:UXML xmlns:ui="UnityEngine.UIElements" />',
     uss: undefined,
     imports: [],

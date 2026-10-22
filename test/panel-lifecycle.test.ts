@@ -93,6 +93,7 @@ import { ACTIVE_STATES, buildRenderRequest, PreviewPanel } from '../src/preview/
 
 const request: RenderRequest = {
   type: 'render',
+    theme: 'runtime',
   uxml: '<ui:UXML xmlns:ui="UnityEngine.UIElements" />',
   uss: undefined,
   imports: [],
@@ -166,6 +167,48 @@ describe('buildRenderRequest diagnostics', () => {
 });
 
 describe('PreviewPanel controls', () => {
+  it('declares runtime as the default theme with only runtime and editor choices', () => {
+    const properties = JSON.parse(readFileSync('package.json', 'utf8')).contributes.configuration.properties;
+    expect(properties['uxmlPreview.theme']).toMatchObject({ type: 'string', default: 'runtime', enum: ['runtime', 'editor'] });
+  });
+
+  it.each(['runtime', 'editor'])('sends the configured %s theme on initial render', async (theme) => {
+    mocks.settings.theme = theme;
+    mocks.messageHandler!({ type: 'ready' });
+    await vi.waitFor(() => expect(mocks.postMessage).toHaveBeenCalledWith(expect.objectContaining({ theme })));
+  });
+
+  it('sends runtime when no theme is configured', async () => {
+    mocks.messageHandler!({ type: 'ready' });
+    await vi.waitFor(() => expect(mocks.postMessage).toHaveBeenCalledWith(expect.objectContaining({ theme: 'runtime' })));
+  });
+
+  it('refreshes the theme from configuration without file reads', () => {
+    preview.lastRequest = request;
+    mocks.settings.theme = 'editor';
+    mocks.configurationHandler!({ affectsConfiguration: (key) => key === 'uxmlPreview.theme' });
+    expect(mocks.postMessage).toHaveBeenCalledWith(expect.objectContaining({ theme: 'editor' }));
+    expect(mocks.readFile).not.toHaveBeenCalled();
+  });
+
+  it.each(['runtime', 'editor'])('persists the %s toolbar selection', async (theme) => {
+    mocks.messageHandler!({ type: 'theme-settings', theme });
+    await vi.waitFor(() => expect(mocks.update).toHaveBeenCalledWith('theme', theme));
+  });
+
+  it('rejects unknown toolbar themes at the host boundary', () => {
+    mocks.messageHandler!({ type: 'theme-settings', theme: 'future' });
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it('provides a labeled theme control and a light runtime-only checkerboard', () => {
+    const html = mocks.webview.html as string;
+    expect(html).toContain('<label class="control-group">Theme <select id="preview-theme">');
+    expect(html).toContain('<option value="runtime">Game screen</option>');
+    expect(html).toContain('<option value="editor">Editor screen</option>');
+    expect(html).toMatch(/#preview\[data-theme="runtime"\]\s*\{[^}]*background-color:\s*white;[^}]*background-image:[^}]*rgb\(204, 204, 204\)/);
+  });
+
   it('uses VS Code theme tokens for every chrome color', () => {
     const html = mocks.webview.html as string;
     expect(html).toContain('var(--vscode-editor-background)');
