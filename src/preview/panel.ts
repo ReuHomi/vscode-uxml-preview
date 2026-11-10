@@ -15,7 +15,7 @@ import {
 } from './imports';
 import { contentSecurityPolicy, nonce } from './csp';
 import type { AssetDiagnostic, AssetReference, ImportDiagnostic, RenderFailure, RenderRequest, Reveal, WebviewMessage } from './protocol';
-import { suggestUnityProjectRoot } from './unity-project';
+import { effectiveProjectRoot, suggestUnityProjectRoot } from './unity-project';
 
 const decoder = new TextDecoder();
 const SAVE_DEBOUNCE_MS = 75;
@@ -525,9 +525,9 @@ export class PreviewPanel implements vscode.Disposable {
     try {
       const uxml = decoder.decode(await vscode.workspace.fs.readFile(this.uri));
       const config = vscode.workspace.getConfiguration('uxmlPreview', this.uri);
-      const projectRoot = config.get<string>('projectRoot', '');
+      const configuredRoot = config.get<string>('projectRoot', '');
       const workspaceRoot = vscode.workspace.getWorkspaceFolder(this.uri)?.uri.fsPath;
-      const suggestedRoot = await suggestUnityProjectRoot(this.uri.fsPath, projectRoot, async (candidate) => {
+      const suggestedRoot = await suggestUnityProjectRoot(this.uri.fsPath, configuredRoot, async (candidate) => {
         try {
           const stat = await vscode.workspace.fs.stat(vscode.Uri.file(candidate));
           return (stat.type & vscode.FileType.Directory) !== 0;
@@ -535,6 +535,7 @@ export class PreviewPanel implements vscode.Disposable {
           return false;
         }
       });
+      const projectRoot = effectiveProjectRoot(configuredRoot, suggestedRoot, workspaceRoot);
       const stylesheetReader = createStylesheetReader(
         this.uri.fsPath,
         projectRoot,
@@ -551,7 +552,7 @@ export class PreviewPanel implements vscode.Disposable {
         },
         projectRoot,
         this.activeStates,
-        suggestedRoot,
+        null,
         stylesheetReader.diagnostics,
         config.get<RenderRequest['theme']>('theme', 'runtime'),
       );
