@@ -153,16 +153,17 @@ function showDiagnostics(
 ): void {
   const groups = diagnosticGroups(lines, hostDiagnostics);
   const issueCount = groups.A.length
-    + groups.B.length
     + groups.C.filter(({ source }) => source !== 'known-divergence').length
     + (failure === undefined ? 0 : 1);
+  const coverageCount = groups.B.length;
   const outer = document.createElement('details');
-  outer.open = issueCount > 0;
+  outer.open = issueCount > 0 || groups.layoutMayDiffer;
   const summary = document.createElement('summary');
   const divergenceCount = groups.C.filter(({ source }) => source === 'known-divergence').length;
-  summary.textContent = canvas !== undefined && issueCount === 0
-    ? `${canvas.width} × ${canvas.height} · ${groups.B.length} unsupported · ${divergenceCount} known divergences`
-    : `${issueCount} ${issueCount === 1 ? 'issue' : 'issues'}`;
+  const prefix = canvas === undefined ? '' : `${canvas.width} × ${canvas.height} · `;
+  summary.textContent = issueCount > 0
+    ? `${issueCount} ${issueCount === 1 ? 'issue' : 'issues'}${coverageCount > 0 ? ` · ${coverageCount} coverage notes` : ''}`
+    : `${prefix}${coverageCount} coverage notes · ${divergenceCount} known divergences`;
   outer.append(summary);
   if (groups.layoutMayDiffer) {
     const notice = document.createElement('p');
