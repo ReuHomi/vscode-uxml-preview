@@ -49,6 +49,8 @@ function request(
     importDiagnostics: [],
     assets,
     assetsResolved: false,
+    fonts: {},
+    fontsResolved: false,
     canvas: { width: 1920, height: 1080 },
     fitToPanel: false,
     activeStates: [],
@@ -120,6 +122,9 @@ describe('webview render messages', () => {
 
   beforeEach(() => {
     postedMessages.length = 0;
+    lastRender = undefined;
+    lastDocumentModel = undefined;
+    lastRenderOptions = undefined;
     document.querySelector('#warnings')!.replaceChildren();
     for (const input of Array.from(document.querySelectorAll<HTMLInputElement>('input[name="active-state"]'))) input.checked = false;
   });
@@ -538,6 +543,31 @@ describe('webview render messages', () => {
     await vi.waitFor(() => expect(document.querySelector('#preview')!.innerHTML).toContain(uri));
     expect(latestAssetMisses()).toEqual({ type: 'asset-misses', references: [] });
     expect(document.body.innerText).not.toContain('asset-unresolved');
+  });
+
+  it('passes a resolved font to render and injects its @font-face', async () => {
+    const fontPath = 'Fonts/Test/Test Asset';
+    const font = {
+      uri: 'vscode-webview://font/Test-Regular.ttf',
+      family: 'uxml-font-0',
+      faceInfo: { pointSize: 100, ascentLine: 80, descentLine: -20, lineHeight: 120 },
+    };
+    const load = vi.fn(async () => []);
+    Object.defineProperty(document, 'fonts', { value: { load }, configurable: true });
+    const message = {
+      ...request(`<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Label text="font" style="-unity-font-definition: resource('${fontPath}');" /></ui:UXML>`),
+      fonts: { [assetKey(fontPath, 'resource')]: font },
+      fontsResolved: true,
+    } satisfies RenderRequest;
+    window.dispatchEvent(new MessageEvent('message', { data: message }));
+
+    await vi.waitFor(() => expect(lastRenderOptions?.resolveFont).toBeDefined());
+    expect(lastRenderOptions!.resolveFont!(fontPath, 'resource')).toEqual({
+      family: font.family,
+      faceInfo: font.faceInfo,
+    });
+    expect(document.head.innerHTML).toContain('@font-face');
+    expect(load).toHaveBeenCalledWith('16px "uxml-font-0"');
   });
 
   it('reports the same missing asset only once', async () => {

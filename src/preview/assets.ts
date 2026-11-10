@@ -17,12 +17,12 @@ export interface AssetRoundTrip {
   readonly resourceRoots: readonly string[];
 }
 
-interface ResourceCandidate {
+export interface ResourceCandidate {
   readonly filePath: string;
   readonly depth: number;
 }
 
-interface ResourceIndex {
+export interface ResourceIndex {
   readonly folders: number;
   readonly assets: ReadonlyMap<string, readonly ResourceCandidate[]>;
 }
@@ -47,11 +47,11 @@ const WEBVIEW_IMAGE_EXTENSIONS = new Set([
   '.bmp', '.gif', '.jpeg', '.jpg', '.png', '.svg', '.webp',
 ]);
 
-function resourceName(value: string): string {
+export function resourceName(value: string): string {
   return value.replaceAll('\\', '/').replace(/^\/+/, '');
 }
 
-async function buildResourceIndex(projectRoot: string): Promise<ResourceIndex> {
+export async function buildResourceIndex(projectRoot: string): Promise<ResourceIndex> {
   const assetsRoot = path.join(projectRoot, 'Assets');
   const resourceRoots = new Set<string>();
   const mutable = new Map<string, ResourceCandidate[]>();

@@ -29,6 +29,8 @@ function request(projectRoot = ''): RenderRequest {
     importDiagnostics: [],
     assets: {},
     assetsResolved: false,
+    fonts: {},
+    fontsResolved: false,
     canvas: { width: 100, height: 100 },
     fitToPanel: false,
     activeStates: [],

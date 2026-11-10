@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import * as vscode from 'vscode';
 import { resolveAssetRoundTrip, type AssetIndexCache, type ResolvedAsset } from './assets';
+import { resolveFontRoundTrip } from './fonts';
 import {
   collectImports,
   createStylesheetReader,
@@ -349,6 +350,10 @@ export class PreviewPanel implements vscode.Disposable {
       this.runAssetRoundTrip(message.references);
       return;
     }
+    if (message.type === 'font-misses') {
+      this.runFontRoundTrip(message.references);
+      return;
+    }
     if (message.type === 'canvas-settings') {
       this.runCanvasSettings(message.canvas, message.fitToPanel);
       return;
@@ -429,16 +434,26 @@ export class PreviewPanel implements vscode.Disposable {
     });
   }
 
-  private setAssetRoots(resourceRoots: readonly string[]): void {
+  private runFontRoundTrip(references: readonly AssetReference[]): void {
+    void this.renderResolvedFonts(references).catch((error: unknown) => {
+      if (!this.disposed) {
+        const detail = error instanceof Error ? error.message : String(error);
+        void vscode.window.showErrorMessage(`UXML Preview: ${detail}`);
+      }
+    });
+  }
+
+  private setAssetRoots(resourceRoots: readonly string[], replace = false): void {
+    const roots = [...new Set(replace ? resourceRoots : [...this.assetRoots, ...resourceRoots])];
     if (
-      this.assetRoots.length === resourceRoots.length
-      && this.assetRoots.every((root, index) => root === resourceRoots[index])
+      this.assetRoots.length === roots.length
+      && this.assetRoots.every((root, index) => root === roots[index])
     ) return;
-    this.assetRoots = [...resourceRoots];
+    this.assetRoots = roots;
     this.panel.webview.options = {
       ...this.panel.webview.options,
       // vscode: asWebviewUri needs these roots; expose only folders of files that resolved.
-      localResourceRoots: [this.dist, ...resourceRoots.map((root) => vscode.Uri.file(root))],
+      localResourceRoots: [this.dist, ...roots.map((root) => vscode.Uri.file(root))],
     };
   }
 
@@ -484,6 +499,26 @@ export class PreviewPanel implements vscode.Disposable {
 
     this.lastRequest = result.request;
     // Updating localResourceRoots reloads the webview; ready must replay this completed request.
+    this.setAssetRoots(result.resourceRoots);
+    await this.panel.webview.postMessage(result.request);
+  }
+
+  private async renderResolvedFonts(references: readonly AssetReference[]): Promise<void> {
+    const request = this.lastRequest;
+    if (request === undefined || request.fontsResolved || this.disposed) return;
+
+    const claimed = { ...request, fontsResolved: true };
+    this.lastRequest = claimed;
+    const result = await resolveFontRoundTrip(request, references, {
+      cache: this.assetIndexCache,
+      projectRoot: request.projectRoot,
+      resolvePath: (assetPath) => this.resolveAsset(assetPath, request.projectRoot),
+      resolveIndexedPath: (filePath) => this.resolveAssetFile(filePath),
+      readTextFile: async (filePath) => decoder.decode(await vscode.workspace.fs.readFile(vscode.Uri.file(filePath))),
+    });
+    if (result === null || this.disposed || this.lastRequest !== claimed) return;
+
+    this.lastRequest = result.request;
     this.setAssetRoots(result.resourceRoots);
     await this.panel.webview.postMessage(result.request);
   }
@@ -559,14 +594,14 @@ export class PreviewPanel implements vscode.Disposable {
       if (this.disposed) return;
       this.lastRequest = request;
       this.importPathsByUrl = importPathsByUrl;
-      this.setAssetRoots([]);
+      this.setAssetRoots([], true);
       await this.panel.webview.postMessage(request);
       if (!this.disposed) this.replaceWatchers(watchTargets(this.uri.fsPath, importPaths));
     } catch (error: unknown) {
       if (this.disposed) return;
       this.lastRequest = undefined;
       this.importPathsByUrl = new Map();
-      this.setAssetRoots([]);
+      this.setAssetRoots([], true);
       this.replaceWatchers(watchTargets(this.uri.fsPath, []));
       const failure: RenderFailure = {
         type: 'render-error',
@@ -630,6 +665,8 @@ export async function buildRenderRequest(
       importDiagnostics,
       assets: {},
       assetsResolved: false,
+      fonts: {},
+      fontsResolved: false,
       canvas: { width: canvas.width, height: canvas.height },
       // Fixed is the default: fitting makes the same file cross layout thresholds
       // at different panel sizes, so the reader must opt into that variability.
