@@ -20,3 +20,11 @@ export async function suggestUnityProjectRoot(
     directory = parent;
   }
 }
+
+export function effectiveProjectRoot(
+  configuredRoot: string,
+  suggestedRoot: string | null,
+  workspaceRoot: string | undefined,
+): string {
+  return configuredRoot || suggestedRoot || workspaceRoot || '';
+}
