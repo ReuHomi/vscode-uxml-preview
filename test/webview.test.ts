@@ -721,7 +721,7 @@ describe('webview render messages', () => {
     await vi.waitFor(() => {
       const outer = document.querySelector<HTMLDetailsElement>('#warnings > details')!;
       expect(outer.querySelector(':scope > summary')!.textContent)
-        .toBe('1920 × 1080 · 0 unsupported · 3 known divergences');
+        .toBe('1920 × 1080 · 0 coverage notes · 3 known divergences');
       expect(outer.open).toBe(false);
       expect(outer.querySelector('[data-group="C"] summary')!.textContent)
         .toBe('Renderer differences from Unity (3)');
@@ -808,7 +808,7 @@ describe('webview render messages', () => {
       expect(allWarnings().every(({ reason }) => reason === 'matches-unity')).toBe(true);
       const outer = document.querySelector<HTMLDetailsElement>('#warnings > details')!;
       expect(outer.querySelector(':scope > summary')!.textContent)
-        .toBe('1920 × 1080 · 0 unsupported · 3 known divergences');
+        .toBe('1920 × 1080 · 0 coverage notes · 3 known divergences');
       expect(outer.querySelector('[data-group="D"]')!.textContent).toContain('version-dependent');
     });
 
