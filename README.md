@@ -106,7 +106,10 @@ The editor theme is not an exact reproduction of older core versions.
 The first preview shows a one-time explanation with an editor-theme action.
 Forced `disabled` states no longer dim elements; authored `enabled="false"` still does.
 Font fallback warnings count as renderer differences; a layout notice appears when
-the core says coordinates may differ. Project fonts are not resolved by this extension.
+the core says coordinates may differ. Font assets referenced through
+`-unity-font-definition` are resolved from the Unity project when possible,
+including the TMP asset's source font and FaceInfo; unresolved fonts fall back
+to the browser font.
 
 `uxmlPreview.projectRoot` is the Unity project directory containing `Assets`,
 `Packages`, and `ProjectSettings`. It is used for `project://` paths, `/Assets`

@@ -4,7 +4,7 @@
  */
 import { loadLayoutEngine, parse, render } from 'uxml-preview';
 import type { RenderResult, SourceRef, UxmlDocument, Warning } from 'uxml-preview';
-import { assetKey, importKey, type AssetReference, type HostDiagnostic, type HostMessage, type RenderRequest, type Reveal, type WebviewMessage } from '../src/preview/protocol';
+import { assetKey, importKey, type AssetReference, type FontResolution, type HostDiagnostic, type HostMessage, type RenderRequest, type Reveal, type WebviewMessage } from '../src/preview/protocol';
 import {
   diagnosticGroups,
   warningLines,
@@ -26,6 +26,22 @@ const presetInputs = Array.from(document.querySelectorAll<HTMLButtonElement>('[d
 const stateInputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="active-state"]'));
 const canvasSize = document.querySelector<HTMLOutputElement>('#canvas-size')!;
 const layoutEngineReady = loadLayoutEngine();
+const fontLoads = new Map<string, Promise<void>>();
+
+function ensureFont(font: FontResolution): Promise<void> {
+  const existing = fontLoads.get(font.family);
+  if (existing !== undefined) return existing;
+  const style = document.createElement('style');
+  style.textContent = `@font-face { font-family: "${font.family}"; src: url("${font.uri}"); }`;
+  document.head.append(style);
+  const loading = document.fonts.load(`16px "${font.family}"`)
+    .then(() => undefined)
+    .catch((error: unknown) => {
+      console.error('UXML Preview: failed to load font', font.uri, error);
+    });
+  fontLoads.set(font.family, loading);
+  return loading;
+}
 let current: RenderResult | undefined;
 let lastRequest: RenderRequest | undefined;
 
@@ -268,6 +284,9 @@ async function renderMessage(msg: HostMessage): Promise<void> {
   warningPanel.replaceChildren();
 
   const assetMisses = new Map<string, AssetReference>();
+  const fontMisses = new Map<string, AssetReference>();
+  const fonts = Object.values(msg.fonts);
+  if (fonts.length > 0) await Promise.all(fonts.map(ensureFont));
   const imports = new Map(msg.imports.map(({ url, from, text }) => [importKey(url, from), text]));
   const documentModel = parse(msg.uxml, msg.uss, {
     resolveImport: (url, from) => imports.get(importKey(url, from)) ?? null,
@@ -277,6 +296,15 @@ async function renderMessage(msg: HostMessage): Promise<void> {
     size: canvas,
     activeStates: new Set(msg.activeStates),
     states: msg.states,
+    resolveFont: (path, form) => {
+      const key = assetKey(path, form);
+      const font = msg.fonts[key];
+      if (font === undefined) {
+        fontMisses.set(key, { path, form });
+        return null;
+      }
+      return { family: font.family, faceInfo: font.faceInfo };
+    },
     resolveAsset: (path, form) => {
       const key = assetKey(path, form);
       const uri = msg.assets[key];
@@ -299,7 +327,13 @@ async function renderMessage(msg: HostMessage): Promise<void> {
     msg.imports,
   );
 
-  vscode.postMessage({ type: 'asset-misses', references: [...assetMisses.values()] });
+  if (!msg.assetsResolved) {
+    vscode.postMessage({ type: 'asset-misses', references: [...assetMisses.values()] });
+    return;
+  }
+  if (!msg.fontsResolved && fontMisses.size > 0) {
+    vscode.postMessage({ type: 'font-misses', references: [...fontMisses.values()] });
+  }
 }
 
 function postCanvasSettings(canvas: { width: number; height: number }, fitToPanel: boolean): void {

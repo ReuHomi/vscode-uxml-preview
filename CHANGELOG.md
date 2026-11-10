@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Resolve `-unity-font-definition` font assets from the Unity project, including the TMP source font and FaceInfo, and load them in the preview.
 ## 0.4.0 - 2026-10-22
 
 ### Changed

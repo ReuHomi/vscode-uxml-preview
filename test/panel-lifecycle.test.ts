@@ -103,6 +103,8 @@ const request: RenderRequest = {
   importDiagnostics: [],
   assets: { stale: 'vscode-webview://asset/icon.png' },
   assetsResolved: true,
+  fonts: {},
+  fontsResolved: true,
   canvas: { width: 100, height: 100 },
   fitToPanel: false,
   activeStates: [],

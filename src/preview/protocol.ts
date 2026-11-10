@@ -24,6 +24,8 @@ export interface RenderRequest {
   readonly assets: Record<string, string>;
   /** False on discovery render, true after the one permitted asset round trip. */
   readonly assetsResolved: boolean;
+  readonly fonts: Record<string, FontResolution>;
+  readonly fontsResolved: boolean;
   readonly canvas: { readonly width: number; readonly height: number };
   readonly fitToPanel: boolean;
   /**
@@ -66,9 +68,22 @@ export function assetKey(path: string, form: AssetForm): string {
   return JSON.stringify([path, form]);
 }
 
+export interface FontFaceInfo {
+  readonly pointSize: number;
+  readonly ascentLine: number;
+  readonly descentLine: number;
+  readonly lineHeight?: number;
+}
+
+export interface FontResolution {
+  readonly uri: string;
+  readonly family: string;
+  readonly faceInfo?: FontFaceInfo;
+}
+
 export interface AssetDiagnostic {
   readonly source: 'host';
-  readonly kind: 'guid-index' | 'guid-index-skipped' | 'asset-path-stale' | 'guid-unresolved' | 'project-root-suggested' | 'package-cache-skipped' | 'resource-ambiguous' | 'resource-unresolved' | 'resource-unsupported';
+  readonly kind: 'guid-index' | 'guid-index-skipped' | 'asset-path-stale' | 'guid-unresolved' | 'project-root-suggested' | 'package-cache-skipped' | 'resource-ambiguous' | 'resource-unresolved' | 'resource-unsupported' | 'font-unresolved' | 'font-unsupported';
   readonly message: string;
   readonly reason?: undefined;
   /** Failed path this explains. No path means panel-wide host information. */
@@ -103,6 +118,11 @@ export interface AssetMisses {
   readonly references: readonly AssetReference[];
 }
 
+export interface FontMisses {
+  readonly type: 'font-misses';
+  readonly references: readonly AssetReference[];
+}
+
 export interface CanvasSettings {
   readonly type: 'canvas-settings';
   readonly canvas: { readonly width: number; readonly height: number };
@@ -128,4 +148,4 @@ export interface Reveal {
 }
 
 export type HostMessage = RenderRequest | RenderFailure;
-export type WebviewMessage = ReadyNotice | AssetMisses | CanvasSettings | ActiveStates | ThemeSettings | Reveal;
+export type WebviewMessage = ReadyNotice | AssetMisses | FontMisses | CanvasSettings | ActiveStates | ThemeSettings | Reveal;
