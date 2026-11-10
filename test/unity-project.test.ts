@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { suggestUnityProjectRoot } from '../src/preview/unity-project';
+import { effectiveProjectRoot, suggestUnityProjectRoot } from '../src/preview/unity-project';
 
 const root = path.join(path.parse(process.cwd()).root, 'project');
 const nested = path.join(root, 'Assets', 'Package', 'Assets');
@@ -41,5 +41,14 @@ describe('Unity project root suggestion', () => {
       return true;
     })).resolves.toBeNull();
     expect(calls).toBe(0);
+  });
+});
+
+describe('effective project root', () => {
+  it('prefers configured, then detected, then workspace', () => {
+    expect(effectiveProjectRoot('configured', 'detected', 'workspace')).toBe('configured');
+    expect(effectiveProjectRoot('', 'detected', 'workspace')).toBe('detected');
+    expect(effectiveProjectRoot('', null, 'workspace')).toBe('workspace');
+    expect(effectiveProjectRoot('', null, undefined)).toBe('');
   });
 });
