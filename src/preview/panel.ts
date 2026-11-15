@@ -15,7 +15,7 @@ import {
 } from './imports';
 import { contentSecurityPolicy, nonce } from './csp';
 import type { AssetDiagnostic, AssetReference, ImportDiagnostic, RenderFailure, RenderRequest, Reveal, WebviewMessage } from './protocol';
-import { effectiveProjectRoot, suggestUnityProjectRoot } from './unity-project';
+import { effectiveProjectRoot, projectRootNote, suggestUnityProjectRoot } from './unity-project';
 
 const decoder = new TextDecoder();
 const SAVE_DEBOUNCE_MS = 75;
@@ -213,6 +213,11 @@ export class PreviewPanel implements vscode.Disposable {
     #warnings [data-group="A"] > summary { color: var(--vscode-editorWarning-foreground); }
     #warnings ul { margin: 0; padding-left: 2em; }
     #warnings li { margin: 4px 0; overflow-wrap: anywhere; }
+    #warnings [data-project-root-note] {
+      margin: 0;
+      padding: 6px 10px;
+      color: var(--vscode-descriptionForeground);
+    }
     #warnings [data-layout-notice] {
       margin: 0;
       padding: 6px 10px;
@@ -536,6 +541,7 @@ export class PreviewPanel implements vscode.Disposable {
         }
       });
       const projectRoot = effectiveProjectRoot(configuredRoot, suggestedRoot, workspaceRoot);
+      const rootNote = projectRootNote(configuredRoot, suggestedRoot, workspaceRoot);
       const stylesheetReader = createStylesheetReader(
         this.uri.fsPath,
         projectRoot,
@@ -552,9 +558,9 @@ export class PreviewPanel implements vscode.Disposable {
         },
         projectRoot,
         this.activeStates,
-        null,
         stylesheetReader.diagnostics,
         config.get<RenderRequest['theme']>('theme', 'runtime'),
+        rootNote,
       );
 
       if (this.disposed) return;
@@ -593,20 +599,16 @@ export async function buildRenderRequest(
   canvas: { width: number; height: number; fitToPanel: boolean },
   projectRoot: string,
   activeStates: readonly string[] = [],
-  suggestedRoot: string | null = null,
   importDiagnostics: readonly ImportDiagnostic[] = [],
   theme: RenderRequest['theme'] = 'runtime',
+  projectRootNote?: string,
 ): Promise<{
   request: RenderRequest;
   importPaths: readonly string[];
   importPathsByUrl: ReadonlyMap<string, string | null>;
 }> {
   const imports = await collectImports(uxml, undefined, read);
-  const assetDiagnostics: AssetDiagnostic[] = suggestedRoot === null ? [] : [{
-    source: 'host',
-    kind: 'project-root-suggested',
-    message: `uxmlPreview.projectRoot is empty. This file appears to be inside a Unity project at ${suggestedRoot}. Set uxmlPreview.projectRoot to that path in Settings.`,
-  }];
+  const assetDiagnostics: AssetDiagnostic[] = [];
   for (const url of imports.unresolved) {
     const packageNote = packageCacheNotSearched(url);
     if (packageNote !== null) assetDiagnostics.push({
@@ -627,6 +629,7 @@ export async function buildRenderRequest(
       imports: [...imports.resolved.values()],
       unresolvedImports: imports.unresolved,
       projectRoot,
+      ...(projectRootNote === undefined ? {} : { projectRootNote }),
       assetDiagnostics,
       importDiagnostics,
       assets: {},

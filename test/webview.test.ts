@@ -728,6 +728,20 @@ describe('webview render messages', () => {
     });
   });
 
+  it('shows the inferred project root and opens the panel', async () => {
+    window.dispatchEvent(new MessageEvent('message', { data: {
+      ...request('<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Label text="root note" /></ui:UXML>'),
+      projectRootNote: 'Using detected Unity project root: /project',
+    } }));
+
+    await vi.waitFor(() => {
+      const outer = document.querySelector<HTMLDetailsElement>('#warnings > details')!;
+      expect(outer.open).toBe(true);
+      expect(outer.querySelector('[data-project-root-note]')!.textContent)
+        .toBe('Using detected Unity project root: /project');
+    });
+  });
+
   it('replaces the DOM without leaking Yoga nodes', async () => {
     window.dispatchEvent(new MessageEvent('message', { data: request(
       '<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Label text="first render" /></ui:UXML>',

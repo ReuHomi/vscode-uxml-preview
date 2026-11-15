@@ -150,6 +150,7 @@ function showDiagnostics(
   failure?: string,
   canvas?: { readonly width: number; readonly height: number },
   imports: RenderRequest['imports'] = [],
+  projectRootNote?: string,
 ): void {
   const groups = diagnosticGroups(lines, hostDiagnostics);
   const issueCount = groups.A.length
@@ -157,13 +158,19 @@ function showDiagnostics(
     + groups.C.filter(({ source }) => source !== 'known-divergence').length
     + (failure === undefined ? 0 : 1);
   const outer = document.createElement('details');
-  outer.open = issueCount > 0;
+  outer.open = issueCount > 0 || projectRootNote !== undefined;
   const summary = document.createElement('summary');
   const divergenceCount = groups.C.filter(({ source }) => source === 'known-divergence').length;
   summary.textContent = canvas !== undefined && issueCount === 0
     ? `${canvas.width} × ${canvas.height} · ${groups.B.length} unsupported · ${divergenceCount} known divergences`
     : `${issueCount} ${issueCount === 1 ? 'issue' : 'issues'}`;
   outer.append(summary);
+  if (projectRootNote !== undefined) {
+    const note = document.createElement('p');
+    note.dataset.projectRootNote = '';
+    note.textContent = projectRootNote;
+    outer.append(note);
+  }
   if (groups.layoutMayDiffer) {
     const notice = document.createElement('p');
     notice.dataset.layoutNotice = '';
@@ -297,6 +304,7 @@ async function renderMessage(msg: HostMessage): Promise<void> {
     undefined,
     canvas,
     msg.imports,
+    msg.projectRootNote,
   );
 
   vscode.postMessage({ type: 'asset-misses', references: [...assetMisses.values()] });

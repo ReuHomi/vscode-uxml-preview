@@ -28,3 +28,16 @@ export function effectiveProjectRoot(
 ): string {
   return configuredRoot || suggestedRoot || workspaceRoot || '';
 }
+
+export function projectRootNote(
+  configuredRoot: string,
+  suggestedRoot: string | null,
+  workspaceRoot: string | undefined,
+): string | undefined {
+  if (configuredRoot !== '') return undefined;
+  if (suggestedRoot !== null) return `Using detected Unity project root: ${suggestedRoot}`;
+  if (workspaceRoot !== undefined && workspaceRoot !== '') {
+    return `Using workspace folder as project root: ${workspaceRoot}`;
+  }
+  return undefined;
+}

@@ -138,13 +138,6 @@ export function diagnosticGroups(
       groups.B.push(diagnostic);
       continue;
     }
-    if (diagnostic.kind === 'project-root-suggested' && diagnostic.path === undefined) {
-      const target = groups.A.find(({ path }) => path !== undefined);
-      if (target !== undefined) {
-        target.lines.push(diagnostic);
-        continue;
-      }
-    }
     addActionable(diagnostic);
   }
   for (const item of groups.A) item.occurrences = Math.max(1, item.occurrences);

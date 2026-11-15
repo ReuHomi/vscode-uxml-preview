@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { effectiveProjectRoot, suggestUnityProjectRoot } from '../src/preview/unity-project';
+import { effectiveProjectRoot, projectRootNote, suggestUnityProjectRoot } from '../src/preview/unity-project';
 
 const root = path.join(path.parse(process.cwd()).root, 'project');
 const nested = path.join(root, 'Assets', 'Package', 'Assets');
@@ -50,5 +50,20 @@ describe('effective project root', () => {
     expect(effectiveProjectRoot('', 'detected', 'workspace')).toBe('detected');
     expect(effectiveProjectRoot('', null, 'workspace')).toBe('workspace');
     expect(effectiveProjectRoot('', null, undefined)).toBe('');
+  });
+});
+
+describe('project root note', () => {
+  it('names the detected Unity project root', () => {
+    expect(projectRootNote('', '/project', '/workspace')).toBe('Using detected Unity project root: /project');
+  });
+
+  it('names the workspace folder when no Unity project was detected', () => {
+    expect(projectRootNote('', null, '/workspace')).toBe('Using workspace folder as project root: /workspace');
+  });
+
+  it('is absent when the root was configured or no root was found', () => {
+    expect(projectRootNote('/configured', null, '/workspace')).toBeUndefined();
+    expect(projectRootNote('', null, undefined)).toBeUndefined();
   });
 });
