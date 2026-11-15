@@ -108,8 +108,8 @@ Forced `disabled` states no longer dim elements; authored `enabled="false"` stil
 Font fallback warnings count as renderer differences; a layout notice appears when
 the core says coordinates may differ. Font assets referenced through
 `-unity-font-definition` are resolved from the Unity project when possible,
-including the TMP asset's source font and FaceInfo; unresolved fonts fall back
-to the browser font.
+including the TextCore FontAsset's source font and FaceInfo; unresolved fonts fall back
+to the browser font and are reported in the diagnostics panel.
 
 `uxmlPreview.projectRoot` is the Unity project directory containing `Assets`,
 `Packages`, and `ProjectSettings`. It is used for `project://` paths, `/Assets`

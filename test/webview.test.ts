@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { liveNodeCount, type RenderResult, type UxmlDocument, type Warning } from 'uxml-preview';
-import { assetKey, type AssetDiagnostic, type AssetMisses, type RenderRequest, type ResolvedImport } from '../src/preview/protocol';
+import { assetKey, type AssetDiagnostic, type ResourceMisses, type RenderRequest, type ResolvedImport } from '../src/preview/protocol';
 import { warningLines } from '../webview/warnings';
 
 const postedMessages: unknown[] = [];
@@ -58,9 +58,9 @@ function request(
   };
 }
 
-function latestAssetMisses(): AssetMisses | undefined {
-  return postedMessages.filter((message): message is AssetMisses => (
-    typeof message === 'object' && message !== null && 'type' in message && message.type === 'asset-misses'
+function latestResourceMisses(): ResourceMisses | undefined {
+  return postedMessages.filter((message): message is ResourceMisses => (
+    typeof message === 'object' && message !== null && 'type' in message && message.type === 'resource-misses'
   )).at(-1);
 }
 
@@ -198,12 +198,13 @@ describe('webview render messages', () => {
     ) }));
 
     await vi.waitFor(() => expect(document.body.innerText).toContain('asset-unresolved'));
-    expect(latestAssetMisses()).toEqual({
-      type: 'asset-misses',
-      references: [{
+    expect(latestResourceMisses()).toEqual({
+      type: 'resource-misses',
+      assets: [{
         path: 'project://database/Assets/UI/missing.png?fileID=2800000&guid=abc123',
         form: 'url',
       }],
+      fonts: [],
     });
   });
 
@@ -527,7 +528,7 @@ describe('webview render messages', () => {
     ) }));
 
     await vi.waitFor(() => expect(document.querySelector('#preview')!.innerHTML).toContain(uri));
-    expect(latestAssetMisses()).toEqual({ type: 'asset-misses', references: [] });
+    expect(latestResourceMisses()).toEqual({ type: 'resource-misses', assets: [], fonts: [] });
     expect(document.body.innerText).not.toContain('asset-unresolved');
   });
 
@@ -541,7 +542,7 @@ describe('webview render messages', () => {
     ) }));
 
     await vi.waitFor(() => expect(document.querySelector('#preview')!.innerHTML).toContain(uri));
-    expect(latestAssetMisses()).toEqual({ type: 'asset-misses', references: [] });
+    expect(latestResourceMisses()).toEqual({ type: 'resource-misses', assets: [], fonts: [] });
     expect(document.body.innerText).not.toContain('asset-unresolved');
   });
 
@@ -570,6 +571,46 @@ describe('webview render messages', () => {
     expect(load).toHaveBeenCalledWith('16px "uxml-font-0"');
   });
 
+  it('collects asset and font misses in one resource-misses message', async () => {
+    window.dispatchEvent(new MessageEvent('message', { data: request(`
+      <ui:UXML xmlns:ui="UnityEngine.UIElements">
+        <ui:VisualElement style='background-image: url("missing.png");' />
+        <ui:Label text="font" style="-unity-font-definition: resource('Fonts/Missing');" />
+      </ui:UXML>
+    `) }));
+
+    await vi.waitFor(() => expect(latestResourceMisses()).toBeDefined());
+    expect(latestResourceMisses()).toEqual({
+      type: 'resource-misses',
+      assets: [{ path: 'missing.png', form: 'url' }],
+      fonts: [{ path: 'Fonts/Missing', form: 'resource' }],
+    });
+    expect(postedMessages.filter((message) =>
+      typeof message === 'object' && message !== null && 'type' in message && message.type === 'resource-misses',
+    )).toHaveLength(1);
+  });
+
+  it('reports a font that the browser could not load', async () => {
+    const fontPath = 'Fonts/Broken';
+    const font = {
+      uri: 'vscode-webview://font/broken.ttf',
+      family: 'uxml-font-broken',
+      path: fontPath,
+    };
+    const load = vi.fn(async () => { throw new Error('load failed'); });
+    Object.defineProperty(document, 'fonts', { value: { load }, configurable: true });
+    const message = {
+      ...request(`<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Label text="font" style="-unity-font-definition: resource('${fontPath}');" /></ui:UXML>`),
+      assetsResolved: true,
+      fonts: { [assetKey(fontPath, 'resource')]: font },
+      fontsResolved: true,
+    } satisfies RenderRequest;
+    window.dispatchEvent(new MessageEvent('message', { data: message }));
+
+    await vi.waitFor(() => expect(document.body.innerText).toContain('font-load-failed'));
+    expect(document.body.innerText).toContain(fontPath);
+  });
+
   it('reports the same missing asset only once', async () => {
     const assetPath = '../Images/missing.png';
     window.dispatchEvent(new MessageEvent('message', { data: request(`
@@ -580,9 +621,10 @@ describe('webview render messages', () => {
     `) }));
 
     await vi.waitFor(() => expect(document.body.innerText).toContain('asset-unresolved'));
-    expect(latestAssetMisses()).toEqual({
-      type: 'asset-misses',
-      references: [{ path: assetPath, form: 'url' }],
+    expect(latestResourceMisses()).toEqual({
+      type: 'resource-misses',
+      assets: [{ path: assetPath, form: 'url' }],
+      fonts: [],
     });
   });
 
@@ -720,9 +762,10 @@ describe('webview render messages', () => {
       expect(fixable.textContent).toContain('uxmlPreview.projectRoot = C:\\Unity\\Project');
       expect(fixable.textContent).not.toMatch(/built-in|editor/i);
     });
-    expect(latestAssetMisses()).toEqual({
-      type: 'asset-misses',
-      references: [{ path: assetPath, form: 'resource' }],
+    expect(latestResourceMisses()).toEqual({
+      type: 'resource-misses',
+      assets: [{ path: assetPath, form: 'resource' }],
+      fonts: [],
     });
   });
 

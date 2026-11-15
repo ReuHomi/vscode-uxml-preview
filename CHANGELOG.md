@@ -4,7 +4,7 @@
 
 ### Changed
 
-- Resolve `-unity-font-definition` font assets from the Unity project, including the TMP source font and FaceInfo, and load them in the preview.
+- Resolve `-unity-font-definition` font assets from the Unity project, including the TextCore FontAsset source font and FaceInfo, load them in the preview, and report unrecognized or unloadable fonts.
 ## 0.4.0 - 2026-10-22
 
 ### Changed

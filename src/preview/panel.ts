@@ -346,12 +346,8 @@ export class PreviewPanel implements vscode.Disposable {
       });
       return;
     }
-    if (message.type === 'asset-misses') {
-      this.runAssetRoundTrip(message.references);
-      return;
-    }
-    if (message.type === 'font-misses') {
-      this.runFontRoundTrip(message.references);
+    if (message.type === 'resource-misses') {
+      this.runResourceRoundTrip(message.assets, message.fonts);
       return;
     }
     if (message.type === 'canvas-settings') {
@@ -425,17 +421,11 @@ export class PreviewPanel implements vscode.Disposable {
     });
   }
 
-  private runAssetRoundTrip(references: readonly AssetReference[]): void {
-    void this.renderResolvedAssets(references).catch((error: unknown) => {
-      if (!this.disposed) {
-        const detail = error instanceof Error ? error.message : String(error);
-        void vscode.window.showErrorMessage(`UXML Preview: ${detail}`);
-      }
-    });
-  }
-
-  private runFontRoundTrip(references: readonly AssetReference[]): void {
-    void this.renderResolvedFonts(references).catch((error: unknown) => {
+  private runResourceRoundTrip(
+    assets: readonly AssetReference[],
+    fonts: readonly AssetReference[],
+  ): void {
+    void this.renderResolvedResources(assets, fonts).catch((error: unknown) => {
       if (!this.disposed) {
         const detail = error instanceof Error ? error.message : String(error);
         void vscode.window.showErrorMessage(`UXML Preview: ${detail}`);
@@ -483,44 +473,48 @@ export class PreviewPanel implements vscode.Disposable {
     }
   }
 
-  private async renderResolvedAssets(references: readonly AssetReference[]): Promise<void> {
+  private async renderResolvedResources(
+    assets: readonly AssetReference[],
+    fonts: readonly AssetReference[],
+  ): Promise<void> {
     const request = this.lastRequest;
-    if (request === undefined || request.assetsResolved || this.disposed) return;
+    if (request === undefined || (request.assetsResolved && request.fontsResolved) || this.disposed) return;
 
-    const claimed = { ...request, assetsResolved: true };
+    const claimed = { ...request, assetsResolved: true, fontsResolved: true };
     this.lastRequest = claimed;
-    const result = await resolveAssetRoundTrip(request, references, {
-      cache: this.assetIndexCache,
-      projectRoot: request.projectRoot,
-      resolvePath: (assetPath) => this.resolveAsset(assetPath, request.projectRoot),
-      resolveIndexedPath: (filePath) => this.resolveAssetFile(filePath),
-    });
-    if (result === null || this.disposed || this.lastRequest !== claimed) return;
+    let current = request;
+    const resourceRoots: string[] = [];
 
-    this.lastRequest = result.request;
+    if (!request.assetsResolved) {
+      const result = await resolveAssetRoundTrip(request, assets, {
+        cache: this.assetIndexCache,
+        projectRoot: request.projectRoot,
+        resolvePath: (assetPath) => this.resolveAsset(assetPath, request.projectRoot),
+        resolveIndexedPath: (filePath) => this.resolveAssetFile(filePath),
+      });
+      if (result === null || this.disposed || this.lastRequest !== claimed) return;
+      current = result.request;
+      resourceRoots.push(...result.resourceRoots);
+    }
+
+    if (!request.fontsResolved) {
+      const result = await resolveFontRoundTrip(current, fonts, {
+        cache: this.assetIndexCache,
+        projectRoot: request.projectRoot,
+        resolvePath: (assetPath) => this.resolveAsset(assetPath, request.projectRoot),
+        resolveIndexedPath: (filePath) => this.resolveAssetFile(filePath),
+        readTextFile: async (filePath) => decoder.decode(await vscode.workspace.fs.readFile(vscode.Uri.file(filePath))),
+      });
+      if (result === null || this.disposed || this.lastRequest !== claimed) return;
+      current = result.request;
+      resourceRoots.push(...result.resourceRoots);
+    }
+
+    const final = { ...current, assetsResolved: true, fontsResolved: true };
+    this.lastRequest = final;
     // Updating localResourceRoots reloads the webview; ready must replay this completed request.
-    this.setAssetRoots(result.resourceRoots);
-    await this.panel.webview.postMessage(result.request);
-  }
-
-  private async renderResolvedFonts(references: readonly AssetReference[]): Promise<void> {
-    const request = this.lastRequest;
-    if (request === undefined || request.fontsResolved || this.disposed) return;
-
-    const claimed = { ...request, fontsResolved: true };
-    this.lastRequest = claimed;
-    const result = await resolveFontRoundTrip(request, references, {
-      cache: this.assetIndexCache,
-      projectRoot: request.projectRoot,
-      resolvePath: (assetPath) => this.resolveAsset(assetPath, request.projectRoot),
-      resolveIndexedPath: (filePath) => this.resolveAssetFile(filePath),
-      readTextFile: async (filePath) => decoder.decode(await vscode.workspace.fs.readFile(vscode.Uri.file(filePath))),
-    });
-    if (result === null || this.disposed || this.lastRequest !== claimed) return;
-
-    this.lastRequest = result.request;
-    this.setAssetRoots(result.resourceRoots);
-    await this.panel.webview.postMessage(result.request);
+    this.setAssetRoots(resourceRoots);
+    await this.panel.webview.postMessage(final);
   }
 
   private scheduleRender(): void {
@@ -619,7 +613,7 @@ export class PreviewPanel implements vscode.Disposable {
  * are discovered by `parse()`, which the host can run itself because it needs
  * no DOM. Asset paths are only reached during painting, inside the webview.
  * They therefore cannot be prefetched the same way. The first request leaves
- * `assets` empty; one asset-misses round trip may fill it, and there is no third.
+ * `assets` and `fonts` empty; one resource-misses round trip may fill both, and there is no third.
  */
 export async function buildRenderRequest(
   uxml: string,

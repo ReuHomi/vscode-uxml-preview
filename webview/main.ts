@@ -4,7 +4,7 @@
  */
 import { loadLayoutEngine, parse, render } from 'uxml-preview';
 import type { RenderResult, SourceRef, UxmlDocument, Warning } from 'uxml-preview';
-import { assetKey, importKey, type AssetReference, type FontResolution, type HostDiagnostic, type HostMessage, type RenderRequest, type Reveal, type WebviewMessage } from '../src/preview/protocol';
+import { assetKey, importKey, type AssetDiagnostic, type AssetReference, type FontResolution, type HostDiagnostic, type HostMessage, type RenderRequest, type Reveal, type WebviewMessage } from '../src/preview/protocol';
 import {
   diagnosticGroups,
   warningLines,
@@ -27,6 +27,7 @@ const stateInputs = Array.from(document.querySelectorAll<HTMLInputElement>('inpu
 const canvasSize = document.querySelector<HTMLOutputElement>('#canvas-size')!;
 const layoutEngineReady = loadLayoutEngine();
 const fontLoads = new Map<string, Promise<void>>();
+const fontLoadFailures = new Map<string, AssetDiagnostic>();
 
 function ensureFont(font: FontResolution): Promise<void> {
   const existing = fontLoads.get(font.family);
@@ -37,6 +38,12 @@ function ensureFont(font: FontResolution): Promise<void> {
   const loading = document.fonts.load(`16px "${font.family}"`)
     .then(() => undefined)
     .catch((error: unknown) => {
+      fontLoadFailures.set(font.family, {
+        source: 'host',
+        kind: 'font-load-failed',
+        message: `Font ${font.path ?? font.family} could not be loaded; the preview is using the fallback font.`,
+        ...(font.path === undefined ? {} : { path: font.path }),
+      });
       console.error('UXML Preview: failed to load font', font.uri, error);
     });
   fontLoads.set(font.family, loading);
@@ -287,6 +294,9 @@ async function renderMessage(msg: HostMessage): Promise<void> {
   const fontMisses = new Map<string, AssetReference>();
   const fonts = Object.values(msg.fonts);
   if (fonts.length > 0) await Promise.all(fonts.map(ensureFont));
+  const fontDiagnostics = fonts
+    .map(({ family }) => fontLoadFailures.get(family))
+    .filter((item): item is AssetDiagnostic => item !== undefined);
   const imports = new Map(msg.imports.map(({ url, from, text }) => [importKey(url, from), text]));
   const documentModel = parse(msg.uxml, msg.uss, {
     resolveImport: (url, from) => imports.get(importKey(url, from)) ?? null,
@@ -320,19 +330,19 @@ async function renderMessage(msg: HostMessage): Promise<void> {
   showDiagnostics(
     warningLines(documentModel.warnings, result.warnings, msg.unresolvedImports, [...assetMisses.values()]),
     msg.projectRoot,
-    [...msg.importDiagnostics, ...msg.assetDiagnostics],
+    [...msg.importDiagnostics, ...msg.assetDiagnostics, ...fontDiagnostics],
     documentModel,
     undefined,
     canvas,
     msg.imports,
   );
 
-  if (!msg.assetsResolved) {
-    vscode.postMessage({ type: 'asset-misses', references: [...assetMisses.values()] });
-    return;
-  }
-  if (!msg.fontsResolved && fontMisses.size > 0) {
-    vscode.postMessage({ type: 'font-misses', references: [...fontMisses.values()] });
+  if (!msg.assetsResolved || !msg.fontsResolved) {
+    vscode.postMessage({
+      type: 'resource-misses',
+      assets: [...assetMisses.values()],
+      fonts: [...fontMisses.values()],
+    });
   }
 }
 
