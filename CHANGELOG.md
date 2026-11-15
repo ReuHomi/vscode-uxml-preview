@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Resolve assets from the configured project root when it is set, then the
+  detected Unity project root, then the workspace folder, and say in the
+  diagnostics panel which root is in use.
+
 ## 0.4.0 - 2026-10-22
 
 ### Changed
