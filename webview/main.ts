@@ -161,9 +161,10 @@ function showDiagnostics(
   const summary = document.createElement('summary');
   const divergenceCount = groups.C.filter(({ source }) => source === 'known-divergence').length;
   const prefix = canvas === undefined ? '' : `${canvas.width} × ${canvas.height} · `;
+  const coverageLabel = `${coverageCount} ${coverageCount === 1 ? 'coverage note' : 'coverage notes'}`;
   summary.textContent = issueCount > 0
-    ? `${issueCount} ${issueCount === 1 ? 'issue' : 'issues'}${coverageCount > 0 ? ` · ${coverageCount} coverage notes` : ''}`
-    : `${prefix}${coverageCount} coverage notes · ${divergenceCount} known divergences`;
+    ? `${issueCount} ${issueCount === 1 ? 'issue' : 'issues'}${coverageCount > 0 ? ` · ${coverageLabel}` : ''}`
+    : `${prefix}${coverageLabel} · ${divergenceCount} known divergences`;
   outer.append(summary);
   if (groups.layoutMayDiffer) {
     const notice = document.createElement('p');
@@ -174,7 +175,7 @@ function showDiagnostics(
 
   const definitions = [
     ['A', 'Fixable', groups.A],
-    ['B', 'Waiting for support', groups.B],
+    ['B', 'Coverage notes', groups.B],
     ['C', 'Renderer differences from Unity', groups.C],
     ['D', 'Notes', groups.D],
   ] as const;

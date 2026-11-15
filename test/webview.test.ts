@@ -586,7 +586,7 @@ describe('webview render messages', () => {
 
     const groups = Array.from(document.querySelectorAll<HTMLDetailsElement>('#warnings [data-group]'));
     expect(groups.map((group) => group.querySelector('summary')!.textContent)).toEqual([
-      'Waiting for support (2)',
+      'Coverage notes (2)',
       'Renderer differences from Unity (3)',
     ]);
     expect(groups.map(({ open }) => open)).toEqual([false, false]);
@@ -725,6 +725,18 @@ describe('webview render messages', () => {
       expect(outer.open).toBe(false);
       expect(outer.querySelector('[data-group="C"] summary')!.textContent)
         .toBe('Renderer differences from Unity (3)');
+    });
+  });
+
+  it('uses the singular coverage note for one undrawn control', async () => {
+    window.dispatchEvent(new MessageEvent('message', { data: request(
+      '<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:DropdownField /></ui:UXML>',
+    ) }));
+
+    await vi.waitFor(() => {
+      const outer = document.querySelector<HTMLDetailsElement>('#warnings > details')!;
+      expect(outer.querySelector(':scope > summary')!.textContent)
+        .toBe('1920 × 1080 · 1 coverage note · 3 known divergences');
     });
   });
 
