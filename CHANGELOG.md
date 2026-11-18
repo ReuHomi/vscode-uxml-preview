@@ -4,6 +4,8 @@
 
 ### Changed
 
+- Count coverage notes separately from fixable issues, name the group
+  `Coverage notes`, and use the singular form for a single note.
 - Resolve assets from the configured project root when it is set, then the
   detected Unity project root, then the workspace folder, and say in the
   diagnostics panel which root is in use.
