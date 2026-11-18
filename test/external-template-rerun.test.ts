@@ -97,5 +97,5 @@ describe('Step 6 external template re-observation', () => {
       missionOverrideTextVisible: true,
     });
     expect(liveNodeCount()).toBe(0);
-  }, 20_000);
+  });
 });
