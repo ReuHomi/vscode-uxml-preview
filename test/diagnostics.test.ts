@@ -102,33 +102,6 @@ describe('diagnostic groups', () => {
     expect(groups.A[0]!.occurrences).toBe(2);
   });
 
-  it('keeps a project-root suggestion independent when there is no failure to attach it to', () => {
-    const groups = diagnosticGroups([], [{
-      source: 'host',
-      kind: 'project-root-suggested',
-      message: 'Set projectRoot.',
-    }]);
-
-    expect(groups.A).toHaveLength(1);
-    expect(groups.A[0]!.lines[0]!.message).toBe('Set projectRoot.');
-  });
-
-  it('attaches a project-root suggestion when a failed path already has an item', () => {
-    const groups = diagnosticGroups([
-      unresolved('parse', 'missing.uss', '@import "missing.uss" could not be resolved'),
-    ], [{
-      source: 'host',
-      kind: 'project-root-suggested',
-      message: 'Set projectRoot.',
-    }]);
-
-    expect(groups.A).toHaveLength(1);
-    expect(groups.A[0]!.lines.map(({ message }) => message)).toEqual([
-      '@import "missing.uss" could not be resolved',
-      'Set projectRoot.',
-    ]);
-  });
-
   it('places a host import-base ambiguity in the fixable group', () => {
     const groups = diagnosticGroups([], [{
       source: 'host',

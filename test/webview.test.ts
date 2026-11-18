@@ -728,6 +728,20 @@ describe('webview render messages', () => {
     });
   });
 
+  it('shows the inferred project root inside a closed panel', async () => {
+    window.dispatchEvent(new MessageEvent('message', { data: {
+      ...request('<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Label text="root note" /></ui:UXML>'),
+      projectRootNote: 'Using detected Unity project root: /project',
+    } }));
+
+    await vi.waitFor(() => {
+      const outer = document.querySelector<HTMLDetailsElement>('#warnings > details')!;
+      expect(outer.querySelector('[data-project-root-note]')!.textContent)
+        .toBe('Using detected Unity project root: /project');
+      expect(outer.open).toBe(false);
+    });
+  });
+
   it('uses the singular coverage note for one undrawn control', async () => {
     window.dispatchEvent(new MessageEvent('message', { data: request(
       '<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:DropdownField /></ui:UXML>',
