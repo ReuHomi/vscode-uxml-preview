@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Count coverage notes separately from fixable issues, name the group
+  `Coverage notes`, and use the singular form for a single note.
+
 ## 0.4.0 - 2026-10-22
 
 ### Changed
