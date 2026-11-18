@@ -1,10 +1,13 @@
 // @vitest-environment happy-dom
 
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { liveNodeCount, type RenderResult, type UxmlDocument, type Warning } from 'uxml-preview';
 import { assetKey, type AssetDiagnostic, type ResourceMisses, type RenderRequest, type ResolvedImport } from '../src/preview/protocol';
+import { resolveFontRoundTrip } from '../src/preview/fonts';
 import { warningLines } from '../webview/warnings';
 
 const postedMessages: unknown[] = [];
@@ -609,6 +612,112 @@ describe('webview render messages', () => {
 
     await vi.waitFor(() => expect(document.body.innerText).toContain('font-load-failed'));
     expect(document.body.innerText).toContain(fontPath);
+  });
+
+  describe('font asset diagnostics in the panel', () => {
+    const GUID = '0123456789abcdef0123456789abcdef';
+    const TEXT_CORE = '{fileID: 19001, guid: 0000000000000000e000000000000000, type: 0}';
+    const TMP = '{fileID: 11500000, guid: 74dfce233d7e4fa38b4e04d1a0e4a9bd, type: 3}';
+    const ASSET = `--- !u!114 &11400000
+MonoBehaviour:
+  m_Script: ${TEXT_CORE}
+  m_Version: 1.1.0
+  m_SourceFontFileGUID: ${GUID}
+  m_FaceInfo:
+    m_PointSize: 100
+    m_LineHeight: 120
+    m_AscentLine: 80
+    m_DescentLine: -20
+`;
+    const roots: string[] = [];
+
+    afterAll(async () => {
+      await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+    });
+
+    // Runs the real host resolver, then shows its request in the panel; the panel must carry the host's words unchanged.
+    async function showResolved(asset: string): Promise<string> {
+      const root = await mkdtemp(join(tmpdir(), 'uxml-panel-font-'));
+      roots.push(root);
+      const files = {
+        'Assets/Resources/Fonts/Test/Test Asset.asset': asset,
+        'Assets/Resources/Fonts/Test/Test-Regular.ttf': 'font',
+        'Assets/Resources/Fonts/Test/Test-Regular.ttf.meta': `fileFormatVersion: 2
+guid: ${GUID}
+`,
+      };
+      for (const [name, text] of Object.entries(files)) {
+        await mkdir(dirname(join(root, name)), { recursive: true });
+        await writeFile(join(root, name), text);
+      }
+      const uxml = `<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Label text="font" style="-unity-font-definition: resource('Fonts/Test/Test Asset');" /></ui:UXML>`;
+      const resolved = await resolveFontRoundTrip(request(uxml, [], {}, root), [{ path: 'Fonts/Test/Test Asset', form: 'resource' }], {
+        cache: {},
+        projectRoot: root,
+        resolvePath: async () => null,
+        resolveIndexedPath: async (filePath) => ({ filePath, uri: `vscode-webview://font/${filePath}` }),
+        readTextFile: async (filePath) => readFileSync(filePath, 'utf8'),
+      });
+      window.dispatchEvent(new MessageEvent('message', { data: { ...resolved!.request, assetsResolved: true } }));
+      return join(root, 'Assets/Resources/Fonts/Test/Test Asset.asset');
+    }
+
+    it("shows a TextMeshPro asset as 'not-a-font-asset' with what the core saw", async () => {
+      const filePath = await showResolved(ASSET.replace(TEXT_CORE, TMP));
+
+      await vi.waitFor(() => expect(document.body.innerText).toContain('font-unsupported'));
+      expect(document.body.innerText).toContain(
+        `Font asset ${filePath} has an unrecognized format: not-a-font-asset; m_Script ${TMP}; m_Version 1.1.0.`,
+      );
+    });
+
+    it("shows an unknown version as 'unknown-format' with what the core saw", async () => {
+      const filePath = await showResolved(ASSET.replace('m_Version: 1.1.0', 'm_Version: 9.9.9'));
+
+      await vi.waitFor(() => expect(document.body.innerText).toContain('font-unsupported'));
+      expect(document.body.innerText).toContain(
+        `Font asset ${filePath} has an unrecognized format: unknown-format; m_Script ${TEXT_CORE}; m_Version 9.9.9.`,
+      );
+    });
+
+    it("shows a missing FaceInfo as 'malformed'", async () => {
+      const filePath = await showResolved(ASSET.slice(0, ASSET.indexOf('  m_FaceInfo:')));
+
+      await vi.waitFor(() => expect(document.body.innerText).toContain('font-unsupported'));
+      expect(document.body.innerText).toContain(
+        `Font asset ${filePath} has an unrecognized format: malformed; m_Script ${TEXT_CORE}; m_Version 1.1.0.`,
+      );
+    });
+
+    it('shows a font asset with no source font reference as unresolved', async () => {
+      const filePath = await showResolved(ASSET.replace(`  m_SourceFontFileGUID: ${GUID}
+`, ''));
+
+      await vi.waitFor(() => expect(document.body.innerText).toContain('font-unresolved'));
+      expect(document.body.innerText).toContain(`Font asset ${filePath} has no source font reference.`);
+    });
+  });
+
+  it('asks for a font alone in one round trip and not again once it is answered', async () => {
+    const fontPath = 'Fonts/OnlyFont';
+    const uxml = `<ui:UXML xmlns:ui="UnityEngine.UIElements"><ui:Label text="font" style="-unity-font-definition: resource('${fontPath}');" /></ui:UXML>`;
+    const misses = () => postedMessages.filter((message) =>
+      typeof message === 'object' && message !== null && 'type' in message && message.type === 'resource-misses',
+    );
+    window.dispatchEvent(new MessageEvent('message', { data: request(uxml) }));
+
+    await vi.waitFor(() => expect(misses()).toHaveLength(1));
+    expect(latestResourceMisses()).toEqual({ type: 'resource-misses', assets: [], fonts: [{ path: fontPath, form: 'resource' }] });
+
+    window.dispatchEvent(new MessageEvent('message', { data: {
+      ...request(uxml),
+      assetsResolved: true,
+      fontsResolved: true,
+      assetDiagnostics: [{ source: 'host', kind: 'font-unresolved', message: 'answered once', path: fontPath }],
+    } }));
+    await vi.waitFor(() => expect(document.body.innerText).toContain('answered once'));
+
+    expect(misses()).toHaveLength(1);
   });
 
   it('reports the same missing asset only once', async () => {

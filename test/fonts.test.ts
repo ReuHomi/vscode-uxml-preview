@@ -27,7 +27,17 @@ MonoBehaviour:
   m_FallbackFontAssetTable: []
 `;
 
-const FONT_ASSET_WITHOUT_FACE = FONT_ASSET.slice(0, FONT_ASSET.indexOf('  m_FaceInfo:'));
+const FONT_META = `fileFormatVersion: 2
+guid: ${FONT_GUID}
+`;
+const TEXT_CORE_SCRIPT = '{fileID: 19001, guid: 0000000000000000e000000000000000, type: 0}';
+// A TextMeshPro font asset: a MonoBehaviour whose m_Script is not the Text Core row.
+const TMP_SCRIPT = '{fileID: 11500000, guid: 74dfce233d7e4fa38b4e04d1a0e4a9bd, type: 3}';
+const TMP_ASSET = FONT_ASSET.replace(TEXT_CORE_SCRIPT, TMP_SCRIPT);
+const UNKNOWN_FORMAT_ASSET = FONT_ASSET.replace('m_Version: 1.1.0', 'm_Version: 9.9.9');
+const MALFORMED_ASSET = FONT_ASSET.slice(0, FONT_ASSET.indexOf('  m_FaceInfo:'));
+const NO_SOURCE_ASSET = FONT_ASSET.replace(`  m_SourceFontFileGUID: ${FONT_GUID}
+`, '');
 
 function request(projectRoot = ''): RenderRequest {
   return {
@@ -99,7 +109,7 @@ describe('font resolution', () => {
     expect(font.uri).toBe('vscode-webview://font/Test-Regular.ttf');
     expect(font.family).toBe('uxml-font-0');
     expect(font.path).toBe(reference.path);
-    expect(font.faceInfo?.pointSize).toBe(100);
+    expect(font.faceInfo).toEqual({ pointSize: 100, ascentLine: 80, descentLine: -20, lineHeight: 120 });
     expect(result!.resourceRoots).toContain(path.join(root, 'Assets/Resources/Fonts/Test'));
   });
 
@@ -124,19 +134,73 @@ describe('font resolution', () => {
     });
   });
 
-  it('rejects an unrecognized font asset format', async () => {
+  async function unrecognized(asset: string): Promise<{ filePath: string; result: Awaited<ReturnType<typeof resolveFontRoundTrip>> }> {
     const root = await fixture({
-      'Assets/Resources/Fonts/Test/Test Asset.asset': FONT_ASSET.replace('fileID: 19001', 'fileID: 19002'),
+      'Assets/Resources/Fonts/Test/Test Asset.asset': asset,
       'Assets/Resources/Fonts/Test/Test-Regular.ttf': 'font',
-      'Assets/Resources/Fonts/Test/Test-Regular.ttf.meta': `fileFormatVersion: 2\nguid: ${FONT_GUID}\n`,
+      'Assets/Resources/Fonts/Test/Test-Regular.ttf.meta': FONT_META,
     });
     const reference = { path: 'Fonts/Test/Test Asset', form: 'resource' as const };
-    const result = await resolveFontRoundTrip(request(root), [reference], options(root));
+    return {
+      filePath: path.join(root, 'Assets/Resources/Fonts/Test/Test Asset.asset'),
+      result: await resolveFontRoundTrip(request(root), [reference], options(root)),
+    };
+  }
+
+  it("reports a TextMeshPro asset as 'not-a-font-asset' with what it saw", async () => {
+    const { filePath, result } = await unrecognized(TMP_ASSET);
 
     expect(result!.request.fonts).toEqual({});
+    expect(result!.request.assetDiagnostics.at(-1)).toEqual({
+      source: 'host',
+      kind: 'font-unsupported',
+      path: 'Fonts/Test/Test Asset',
+      message: `Font asset ${filePath} has an unrecognized format: not-a-font-asset; m_Script ${TMP_SCRIPT}; m_Version 1.1.0.`,
+    });
+  });
+
+  it("reports an unknown version as 'unknown-format' with what it saw", async () => {
+    const { filePath, result } = await unrecognized(UNKNOWN_FORMAT_ASSET);
+
+    expect(result!.request.fonts).toEqual({});
+    expect(result!.request.assetDiagnostics.at(-1)).toEqual({
+      source: 'host',
+      kind: 'font-unsupported',
+      path: 'Fonts/Test/Test Asset',
+      message: `Font asset ${filePath} has an unrecognized format: unknown-format; m_Script ${TEXT_CORE_SCRIPT}; m_Version 9.9.9.`,
+    });
+  });
+
+  it("reports a missing FaceInfo as 'malformed' and does not keep the font", async () => {
+    const { filePath, result } = await unrecognized(MALFORMED_ASSET);
+
+    expect(result!.request.fonts).toEqual({});
+    expect(result!.request.assetDiagnostics.at(-1)).toEqual({
+      source: 'host',
+      kind: 'font-unsupported',
+      path: 'Fonts/Test/Test Asset',
+      message: `Font asset ${filePath} has an unrecognized format: malformed; m_Script ${TEXT_CORE_SCRIPT}; m_Version 1.1.0.`,
+    });
+  });
+
+  it('leaves out m_Script and m_Version when the core saw neither', async () => {
+    const { filePath, result } = await unrecognized('not yaml at all\n');
+
     expect(result!.request.assetDiagnostics.at(-1)).toMatchObject({
       kind: 'font-unsupported',
-      message: expect.stringContaining('unrecognized format'),
+      message: `Font asset ${filePath} has an unrecognized format: not-a-font-asset.`,
+    });
+  });
+
+  it('reports a font asset with no source font reference as unresolved', async () => {
+    const { filePath, result } = await unrecognized(NO_SOURCE_ASSET);
+
+    expect(result!.request.fonts).toEqual({});
+    expect(result!.request.assetDiagnostics.at(-1)).toEqual({
+      source: 'host',
+      kind: 'font-unresolved',
+      path: 'Fonts/Test/Test Asset',
+      message: `Font asset ${filePath} has no source font reference.`,
     });
   });
 
@@ -150,18 +214,6 @@ describe('font resolution', () => {
       kind: 'font-unsupported',
       message: expect.stringContaining('.ttc'),
     });
-  });
-
-  it('keeps a font asset without FaceInfo', async () => {
-    const root = await fixture({
-      'Assets/Resources/Fonts/Test/Test Asset.asset': FONT_ASSET_WITHOUT_FACE,
-      'Assets/Resources/Fonts/Test/Test-Regular.ttf': 'font',
-      'Assets/Resources/Fonts/Test/Test-Regular.ttf.meta': `fileFormatVersion: 2\nguid: ${FONT_GUID}\n`,
-    });
-    const reference = { path: 'Fonts/Test/Test Asset', form: 'resource' as const };
-    const result = await resolveFontRoundTrip(request(root), [reference], options(root));
-
-    expect(result!.request.fonts[assetKey(reference.path, reference.form)]?.faceInfo).toBeUndefined();
   });
 
   it('reports ambiguous resource() font candidates', async () => {

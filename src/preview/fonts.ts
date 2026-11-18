@@ -64,7 +64,7 @@ async function guidIndex(options: FontResolutionOptions): Promise<GuidIndex> {
   return options.cache.guidIndex;
 }
 
-async function resolveFontAsset(filePath: string, options: FontResolutionOptions): Promise<{ font?: FontFile; failure?: FontFailure }> {
+async function resolveFontAsset(filePath: string, options: FontResolutionOptions): Promise<{ font?: FontFile & { faceInfo: NonNullable<FontFile['faceInfo']> }; failure?: FontFailure }> {
   let source: string;
   try {
     source = await options.readTextFile(filePath);
@@ -73,11 +73,11 @@ async function resolveFontAsset(filePath: string, options: FontResolutionOptions
   }
 
   const parsed = readFontAsset(source);
-  if (parsed.kind === 'unrecognized') {
+  if ('unrecognized' in parsed) {
     return {
       failure: {
         kind: 'font-unsupported',
-        message: `Font asset ${filePath} has an unrecognized format: ${parsed.reason}.`,
+        message: `Font asset ${filePath} has an unrecognized format: ${parsed.unrecognized}${typeof parsed.seen.script === 'string' ? `; m_Script ${parsed.seen.script}` : ''}${typeof parsed.seen.version === 'string' ? `; m_Version ${parsed.seen.version}` : ''}.`,
       },
     };
   }
