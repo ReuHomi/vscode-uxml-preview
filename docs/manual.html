@@ -141,7 +141,8 @@ table.man{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;bac
   <div class="band"><span class="num">1</span><span class="bg"><span>What this viewer does</span></span><span class="en">BASICS</span></div>
   <p>UXML Preview renders a <code>.uxml</code> document in a VS Code webview. The extension reads and watches files; the <code>uxml-preview</code> core parses UXML and USS, lays it out with Yoga, and paints the result.</p>
   <div class="pull">"If the renderer cannot honor something, the panel must say so."<small>THE VIEWER'S CONTRACT</small></div>
-  <p>Core 0.7.0 draws 15 control types: <code>VisualElement</code>, <code>Label</code>, <code>Button</code>, <code>Image</code>, <code>ScrollView</code>, <code>GroupBox</code>, <code>Box</code>, <code>TextField</code>, <code>Slider</code>, <code>SliderInt</code>, <code>Toggle</code>, <code>RadioButton</code>, <code>ProgressBar</code>, <code>TextElement</code>, and <code>RepeatButton</code>. Other controls become plain fallback boxes. <code>Template</code> and <code>Instance</code> compose reusable UI; slots remain unsupported and are diagnosed.</p>
+  <p>Core 0.8.0 draws 15 control types: <code>VisualElement</code>, <code>Label</code>, <code>Button</code>, <code>Image</code>, <code>ScrollView</code>, <code>GroupBox</code>, <code>Box</code>, <code>TextField</code>, <code>Slider</code>, <code>SliderInt</code>, <code>Toggle</code>, <code>RadioButton</code>, <code>ProgressBar</code>, <code>TextElement</code>, and <code>RepeatButton</code>. Other controls become plain fallback boxes. <code>Template</code> and <code>Instance</code> compose reusable UI; slots remain unsupported and are diagnosed.</p>
+  <p>Project fonts named by <code>-unity-font-definition</code> are resolved from the Unity project. A Text Core font asset is read through the core: its source font and FaceInfo are used. A TextMeshPro asset and a <code>.ttc</code> source font are not loaded; each is reported in group A and the browser font is used instead.</p>
   <p>The toolbar's <strong>Game screen</strong> theme is the default: text and buttons can look larger, and a white/gray checkerboard shows transparency. <strong>Editor screen</strong> selects the editor theme. The choice is saved as <code>uxmlPreview.theme</code>; the toolbar reflects the theme actually drawn. A one-time notice offers the editor theme. TextField has no caret or selection display, RepeatButton is plain text, and scrollbars are not drawn.</p>
   <div class="tip"><span class="nt">SCOPE</span><p>This is a viewer. It does not edit files, validate USS, reproduce every UI Toolkit control, or put diagnostics in VS Code's Problems panel.</p></div>
 
@@ -158,7 +159,7 @@ table.man{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;bac
     <tr><td><code>uxmlPreview.canvas.width</code></td><td><code>1920</code></td><td>Fixed root width in pixels.</td></tr>
     <tr><td><code>uxmlPreview.canvas.height</code></td><td><code>1080</code></td><td>Fixed root height in pixels.</td></tr>
     <tr><td><code>uxmlPreview.canvas.fitToPanel</code></td><td><code>false</code></td><td>Use the preview area's current size instead of the fixed size.</td></tr>
-    <tr><td><code>uxmlPreview.projectRoot</code></td><td>empty</td><td>Unity project root for project paths and GUID references. Empty uses the workspace folder containing the file.</td></tr>
+    <tr><td><code>uxmlPreview.projectRoot</code></td><td>empty</td><td>Unity project root for project paths and GUID references. Empty uses the outermost folder above the file that contains both <code>Assets</code> and <code>ProjectSettings</code>, then the workspace folder. The panel says which root is in use.</td></tr>
     <tr><td><code>uxmlPreview.states</code></td><td><code>{}</code></td><td>Pseudo-class states keyed by USS selector. This version has no selector input UI.</td></tr>
   </table>
   <div class="note"><span class="nt">CANVAS DEFAULT</span><p>The fixed 1920 by 1080 canvas is deliberate. A layout with 3 pixels of slack can flip after a 4-pixel size difference. A fixed root gives different readers the same layout input.</p></div>
@@ -224,7 +225,7 @@ table.man{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;bac
     </div>
     <div class="bio">
       <div class="bubble" style="border-color:var(--teal)">"I group by what you can do next, not by warning kind or severity."</div>
-      <table><tr><td>Role</td><td><strong>A: Fixable</strong> covers file, path, setting, and malformed-input work. <strong>B: Waiting for support</strong> covers unsupported renderer features. <strong>C: Renderer differences from Unity</strong> covers version-dependent and known differences.</td></tr><tr><td>Metaphor</td><td>A triage desk sends each item to the person who can act. It is not a severity scale: C is not automatically worse than A.</td></tr><tr><td>Watch</td><td>Core text and host context can share one item. The header counts issues, not the number of displayed lines.</td></tr></table>
+      <table><tr><td>Role</td><td><strong>A: Fixable</strong> covers file, path, setting, and malformed-input work. <strong>B: Coverage notes</strong> covers renderer features the core does not draw. <strong>C: Renderer differences from Unity</strong> covers version-dependent and known differences.</td></tr><tr><td>Metaphor</td><td>A triage desk sends each item to the person who can act. It is not a severity scale: C is not automatically worse than A.</td></tr><tr><td>Watch</td><td>Core text and host context can share one item. The header counts issues and coverage notes separately, not the number of displayed lines, and says <code>1 coverage note</code> in the singular. The panel opens by itself only when there are fixable issues or the core says layout may differ; coverage notes and the project root note stay collapsed.</td></tr></table>
     </div>
   </div>
 
@@ -254,7 +255,7 @@ table.man{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;bac
     </div>
     <div class="bio">
       <div class="bubble" style="border-color:var(--coral)">"Try the written path first. If an asset moved, its GUID can still lead me to the file."</div>
-      <table><tr><td>Role</td><td><code>uxmlPreview.projectRoot</code> anchors Unity project paths. Asset references commonly carry both a path and a GUID; a moved file keeps the GUID in its <code>.meta</code>.</td></tr><tr><td>Metaphor</td><td>An address book tries the street address, then the stable identity. The metaphor stops at stylesheets: GUID fallback is for assets, not USS imports.</td></tr><tr><td>Watch</td><td>The GUID index is built only after a path miss and is reused while the panel lives. <code>Library/PackageCache</code> is not searched.</td></tr></table>
+      <table><tr><td>Role</td><td><code>uxmlPreview.projectRoot</code> anchors Unity project paths. When it is empty the preview uses the outermost folder above the file that contains <code>Assets</code> and <code>ProjectSettings</code>, then the workspace folder, and the panel notes which one it chose. Asset references commonly carry both a path and a GUID; a moved file keeps the GUID in its <code>.meta</code>.</td></tr><tr><td>Metaphor</td><td>An address book tries the street address, then the stable identity. The metaphor stops at stylesheets: GUID fallback is for assets, not USS imports.</td></tr><tr><td>Watch</td><td>The GUID index is built only after a path miss and is reused while the panel lives. <code>Library/PackageCache</code> is not searched.</td></tr></table>
     </div>
   </div>
 </section>
@@ -281,7 +282,7 @@ table.man{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;bac
     <div class="tl"><div class="dot"></div><div class="tt">Open</div><div class="td">Select the UXML and open the preview to the side.</div></div>
     <div class="tl"><div class="dot"></div><div class="tt">Set context</div><div class="td">Confirm canvas size, active states, and project root.</div></div>
     <div class="tl"><div class="dot"></div><div class="tt">Edit and save</div><div class="td">Change UXML or a resolved USS file. Saving triggers a rerender.</div></div>
-    <div class="tl"><div class="dot"></div><div class="tt">Read diagnostics</div><div class="td">Fix A, note B, and understand C before comparing with Unity.</div></div>
+    <div class="tl"><div class="dot"></div><div class="tt">Read diagnostics</div><div class="td">Fix A, read the coverage notes in B, and understand C before comparing with Unity.</div></div>
     <div class="tl"><div class="dot"></div><div class="tt">Compare</div><div class="td">Use the displayed root size when checking the same document in Unity.</div></div>
   </div>
   <div class="note"><span class="nt">STATE CHECK</span><p>The control bar can apply <code>hover</code>, <code>active</code>, <code>focus</code>, and <code>disabled</code> to every element. Check those boxes before deciding that Unity and the preview disagree.</p></div>
@@ -293,7 +294,8 @@ table.man{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;bac
   <div class="faq"><div class="q">Why does nothing open for a USS file?</div><div class="a">A USS file cannot be rendered on its own. In Unity UI Toolkit, a stylesheet only takes effect when attached to a document. Open a <code>.uxml</code> file that references this stylesheet with <code>&lt;Style src&gt;</code>.</div></div>
   <div class="faq"><div class="q">Why is an image replaced by magenta stripes?</div><div class="a">The asset resolver missed. For URL references, group A reports the written path, GUID, and <code>uxmlPreview.projectRoot</code>. For <code>resource()</code>, it reports how many Resources folders were searched and which name was not found: zero folders usually means the project root needs attention, while one or more means the referenced file or path needs attention. Unlike Unity, the viewer deliberately keeps the magenta fallback instead of substituting a built-in icon, so the failure stays visible.</div></div>
   <div class="faq"><div class="q">Why did an image render through GUID fallback and still produce a warning?</div><div class="a">The image exists, but the path written in the UXML is stale. Update the document path to the actual location.</div></div>
-  <div class="faq"><div class="q">Why is a custom control only an outlined box?</div><div class="a">The core supports 15 control types. The box preserves the unsupported control's location; its B diagnostic names the missing support.</div></div>
+  <div class="faq"><div class="q">Why is a custom control only an outlined box?</div><div class="a">The core supports 15 control types. The box preserves the unsupported control's location; its coverage note in group B names the missing support.</div></div>
+  <div class="faq"><div class="q">Why is text drawn in the browser font although I set a font asset?</div><div class="a">Read group A. A Text Core font asset whose source font cannot be found, or whose format the core does not recognize, is reported with the value the core gave and the <code>m_Script</code> and <code>m_Version</code> it saw. A TextMeshPro asset and a <code>.ttc</code> source font are not loaded. A source font file the browser cannot load is reported as <code>font-load-failed</code>.</div></div>
   <div class="faq"><div class="q">Why is part of a composed Template missing?</div><div class="a">Check group A for an unresolved template, cycle, depth limit, or unmatched <code>element-name</code>. Slots are not composed, and <code>style</code> AttributeOverrides stay unapplied to match Unity import behavior; both cases remain explicit diagnostics.</div></div>
   <div class="faq"><div class="q">Why is a package file under Library missing?</div><div class="a">Only <code>&lt;projectRoot&gt;/Packages</code> is searched. <code>Library/PackageCache</code> is outside the current lookup scope.</div></div>
   <div class="faq"><div class="q">Why did the layout change when I resized the panel?</div><div class="a">Check <strong>Fit to panel</strong>. When enabled, resizing changes the root layout size. When disabled, the fixed canvas remains the layout input.</div></div>
@@ -304,7 +306,7 @@ table.man{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;bac
 <!-- COLOPHON -->
 <div class="endpage">
   <div class="lg">UXML PREVIEW</div>
-  Version 0.5.0 · Generated 2026-10-22 · Audience: Unity developers new to this viewer<br>
+  Version 0.5.0 · Generated 2026-11-19 · Audience: Unity developers new to this viewer<br>
   Open this file in a browser. Use Ctrl+P and save as PDF for the print edition.
 </div>
 
