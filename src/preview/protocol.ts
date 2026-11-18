@@ -26,6 +26,8 @@ export interface RenderRequest {
   readonly assets: Record<string, string>;
   /** False on discovery render, true after the one permitted asset round trip. */
   readonly assetsResolved: boolean;
+  readonly fonts: Record<string, FontResolution>;
+  readonly fontsResolved: boolean;
   readonly canvas: { readonly width: number; readonly height: number };
   readonly fitToPanel: boolean;
   /**
@@ -68,9 +70,23 @@ export function assetKey(path: string, form: AssetForm): string {
   return JSON.stringify([path, form]);
 }
 
+export interface FontFaceInfo {
+  readonly pointSize: number;
+  readonly ascentLine: number;
+  readonly descentLine: number;
+  readonly lineHeight?: number;
+}
+
+export interface FontResolution {
+  readonly uri: string;
+  readonly family: string;
+  readonly path?: string;
+  readonly faceInfo?: FontFaceInfo;
+}
+
 export interface AssetDiagnostic {
   readonly source: 'host';
-  readonly kind: 'guid-index' | 'guid-index-skipped' | 'asset-path-stale' | 'guid-unresolved' | 'package-cache-skipped' | 'resource-ambiguous' | 'resource-unresolved' | 'resource-unsupported';
+  readonly kind: 'guid-index' | 'guid-index-skipped' | 'asset-path-stale' | 'guid-unresolved' | 'package-cache-skipped' | 'resource-ambiguous' | 'resource-unresolved' | 'resource-unsupported' | 'font-unresolved' | 'font-unsupported' | 'font-load-failed';
   readonly message: string;
   readonly reason?: undefined;
   /** Failed path this explains. No path means panel-wide host information. */
@@ -99,10 +115,11 @@ export interface ReadyNotice {
   readonly type: 'ready';
 }
 
-/** Webview to host: asset references the render asked for and did not have. */
-export interface AssetMisses {
-  readonly type: 'asset-misses';
-  readonly references: readonly AssetReference[];
+/** Webview to host: asset and font references the render asked for and did not have. */
+export interface ResourceMisses {
+  readonly type: 'resource-misses';
+  readonly assets: readonly AssetReference[];
+  readonly fonts: readonly AssetReference[];
 }
 
 export interface CanvasSettings {
@@ -130,4 +147,4 @@ export interface Reveal {
 }
 
 export type HostMessage = RenderRequest | RenderFailure;
-export type WebviewMessage = ReadyNotice | AssetMisses | CanvasSettings | ActiveStates | ThemeSettings | Reveal;
+export type WebviewMessage = ReadyNotice | ResourceMisses | CanvasSettings | ActiveStates | ThemeSettings | Reveal;

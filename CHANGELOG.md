@@ -1,9 +1,16 @@
 # Changelog
 
-## Unreleased
+## 0.5.0 (draft)
 
 ### Changed
 
+- Upgrade to `uxml-preview@^0.8.0`, which reads Unity Text Core font assets.
+- Resolve `-unity-font-definition` from the Unity project. A Text Core font asset
+  is read through `uxml-preview` 0.8.0: its source font and FaceInfo are loaded
+  in the preview. A TextMeshPro asset is reported in the diagnostics panel, not
+  read; a `.ttc` source font is reported too, because the browser loads only its
+  first face. A font asset the core does not recognize is reported with the
+  core's value and the `m_Script` and `m_Version` it saw.
 - Count coverage notes separately from fixable issues, name the group
   `Coverage notes`, and use the singular form for a single note.
 - Resolve assets from the configured project root when it is set, then the

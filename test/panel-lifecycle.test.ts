@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import type { RenderRequest } from '../src/preview/protocol';
 
 const mocks = vi.hoisted(() => ({
@@ -7,7 +10,8 @@ const mocks = vi.hoisted(() => ({
   disposeHandler: undefined as (() => void) | undefined,
   configurationHandler: undefined as ((event: { affectsConfiguration(section: string): boolean }) => void) | undefined,
   postMessage: vi.fn(async () => true),
-  readFile: vi.fn(async () => new TextEncoder().encode('<ui:UXML xmlns:ui="UnityEngine.UIElements" />')),
+  readFile: vi.fn(async (_uri?: unknown) => new TextEncoder().encode('<ui:UXML xmlns:ui="UnityEngine.UIElements" />')),
+  stat: vi.fn(async () => ({ type: 1 })),
   update: vi.fn(async () => undefined),
   openTextDocument: vi.fn(async (uri: unknown) => ({ uri, positionAt: (offset: number) => ({ line: 7, character: offset }) })),
   showTextDocument: vi.fn(async () => undefined),
@@ -66,7 +70,7 @@ vi.mock('vscode', () => {
       showTextDocument: mocks.showTextDocument,
     },
     workspace: {
-      fs: { readFile: mocks.readFile },
+      fs: { readFile: mocks.readFile, stat: mocks.stat },
       openTextDocument: mocks.openTextDocument,
       getConfiguration: () => ({
         get: (key: string, fallback: unknown) => mocks.settings[key] ?? fallback,
@@ -103,6 +107,8 @@ const request: RenderRequest = {
   importDiagnostics: [],
   assets: { stale: 'vscode-webview://asset/icon.png' },
   assetsResolved: true,
+  fonts: {},
+  fontsResolved: true,
   canvas: { width: 100, height: 100 },
   fitToPanel: false,
   activeStates: [],
@@ -146,6 +152,48 @@ describe('PreviewPanel webview reloads', () => {
     preview.setAssetRoots([]);
 
     expect(mocks.optionWrites).toBe(0);
+  });
+});
+
+describe('PreviewPanel font round trip', () => {
+  it('answers a document with one font and no image with one render', async () => {
+    const guid = '0123456789abcdef0123456789abcdef';
+    const root = await mkdtemp(path.join(tmpdir(), 'uxml-panel-roundtrip-'));
+    const dir = path.join(root, 'Assets/Resources/Fonts');
+    await mkdir(dir, { recursive: true });
+    await writeFile(path.join(dir, 'Test.asset'), `--- !u!114 &11400000
+MonoBehaviour:
+  m_Script: {fileID: 19001, guid: 0000000000000000e000000000000000, type: 0}
+  m_Version: 1.1.0
+  m_SourceFontFileGUID: ${guid}
+  m_FaceInfo:
+    m_PointSize: 100
+    m_LineHeight: 120
+    m_AscentLine: 80
+    m_DescentLine: -20
+`);
+    await writeFile(path.join(dir, 'Test.ttf'), 'font');
+    await writeFile(path.join(dir, 'Test.ttf.meta'), `fileFormatVersion: 2
+guid: ${guid}
+`);
+    mocks.readFile.mockImplementation(async (uri: unknown) => new Uint8Array(readFileSync((uri as { fsPath: string }).fsPath)));
+    try {
+      preview.lastRequest = { ...request, projectRoot: root, assets: {}, assetsResolved: false, fontsResolved: false };
+
+      mocks.messageHandler!({ type: 'resource-misses', assets: [], fonts: [{ path: 'Fonts/Test', form: 'resource' }] });
+      await vi.waitFor(() => expect(mocks.postMessage).toHaveBeenCalled());
+
+      const sent = mocks.postMessage.mock.calls.map((call) => (call as unknown[])[0] as RenderRequest);
+      expect(sent).toHaveLength(1);
+      expect(sent[0]).toMatchObject({ type: 'render', assetsResolved: true, fontsResolved: true });
+      expect(Object.values(sent[0]!.fonts)).toEqual([expect.objectContaining({
+        path: 'Fonts/Test',
+        faceInfo: { pointSize: 100, ascentLine: 80, descentLine: -20, lineHeight: 120 },
+      })]);
+    } finally {
+      mocks.readFile.mockImplementation(async () => new TextEncoder().encode('<ui:UXML xmlns:ui="UnityEngine.UIElements" />'));
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });
 
