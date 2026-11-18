@@ -115,7 +115,7 @@ to the browser font and are reported in the diagnostics panel.
 `Packages`, and `ProjectSettings`. It is used for `project://` paths, `/Assets`
 paths, package paths, and GUID fallback after a written asset path has gone
 stale. Set it when the workspace folder containing the UXML file is not the
-Unity project root. When it is empty, that workspace folder is used.
+Unity project root. When it is empty, the closest detected Unity project root is used, then the workspace folder.
 
 | Setting | Default | Purpose |
 |---|---:|---|

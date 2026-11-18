@@ -16,6 +16,8 @@ export interface RenderRequest {
   readonly unresolvedImports: readonly string[];
   /** Current setting value, included so actionable diagnostics can explain resolution. */
   readonly projectRoot: string;
+  /** Host note naming the root that was inferred when the setting is empty. */
+  readonly projectRootNote?: string;
   /** Host facts discovered while resolving assets. */
   readonly assetDiagnostics: readonly AssetDiagnostic[];
   /** Host facts discovered while resolving imports; shown in the fixable group. */
@@ -84,7 +86,7 @@ export interface FontResolution {
 
 export interface AssetDiagnostic {
   readonly source: 'host';
-  readonly kind: 'guid-index' | 'guid-index-skipped' | 'asset-path-stale' | 'guid-unresolved' | 'project-root-suggested' | 'package-cache-skipped' | 'resource-ambiguous' | 'resource-unresolved' | 'resource-unsupported' | 'font-unresolved' | 'font-unsupported' | 'font-load-failed';
+  readonly kind: 'guid-index' | 'guid-index-skipped' | 'asset-path-stale' | 'guid-unresolved' | 'package-cache-skipped' | 'resource-ambiguous' | 'resource-unresolved' | 'resource-unsupported' | 'font-unresolved' | 'font-unsupported' | 'font-load-failed';
   readonly message: string;
   readonly reason?: undefined;
   /** Failed path this explains. No path means panel-wide host information. */

@@ -166,6 +166,22 @@ describe('buildRenderRequest diagnostics', () => {
       message: expect.stringContaining('Library/PackageCache is not searched'),
     }));
   });
+
+  it('carries the inferred project root note into the render request', async () => {
+    const note = 'Using detected Unity project root: /project';
+    const { request: built } = await buildRenderRequest(
+      '<ui:UXML xmlns:ui="UnityEngine.UIElements" />',
+      async () => null,
+      { width: 100, height: 100, fitToPanel: false },
+      '/project',
+      [],
+      [],
+      'runtime',
+      note,
+    );
+
+    expect(built.projectRootNote).toBe(note);
+  });
 });
 
 describe('PreviewPanel controls', () => {

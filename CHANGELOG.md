@@ -4,7 +4,13 @@
 
 ### Changed
 
+- Count coverage notes separately from fixable issues, name the group
+  `Coverage notes`, and use the singular form for a single note.
+- Resolve assets from the configured project root when it is set, then the
+  detected Unity project root, then the workspace folder, and say in the
+  diagnostics panel which root is in use.
 - Resolve `-unity-font-definition` font assets from the Unity project, including the TextCore FontAsset source font and FaceInfo, load them in the preview, and report unrecognized or unloadable fonts.
+
 ## 0.4.0 - 2026-10-22
 
 ### Changed
