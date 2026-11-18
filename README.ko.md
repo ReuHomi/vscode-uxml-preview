@@ -98,7 +98,7 @@ UXML 문서나 해석에 성공한 임포트 스타일시트를 저장하면 미
 처음 미리보기를 열 때 한 번 안내하며 에디터 테마로 바꾸는 버튼을 제공한다.
 강제로 켠 `disabled` 상태는 더 이상 흐리게 하지 않으며, 작성한 `enabled="false"`는
 여전히 흐리게 한다. 글꼴 폴백은 렌더러 차이로 세고, 코어가 좌표에 영향을 준다고
-알리면 레이아웃 안내를 표시한다. `-unity-font-definition`이 참조하는 프로젝트 글꼴은 가능한 경우 Unity 프로젝트에서 해석하며, TextCore FontAsset의 원본 글꼴과 FaceInfo를 사용한다. 해석할 수 없는 글꼴은 브라우저 글꼴로 대체하며 진단 패널에 표시한다.
+알리면 레이아웃 안내를 표시한다. `-unity-font-definition`이 참조하는 프로젝트 글꼴은 Unity 프로젝트에서 해석한다. Text Core 폰트 에셋은 `uxml-preview` 0.8.0으로 읽어 원본 글꼴과 FaceInfo를 쓴다. TextMeshPro 에셋과 `.ttc` 글꼴은 읽지 않고 진단 패널에 표시하며, 그때는 브라우저 글꼴을 쓴다.
 
 `uxmlPreview.projectRoot`는 `Assets`, `Packages`, `ProjectSettings`가 들어 있는
 Unity 프로젝트 디렉터리다. `project://` 경로, `/Assets` 경로, 패키지 경로,
