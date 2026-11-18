@@ -15,8 +15,8 @@ describe('0.4.0 release contract', () => {
   it.each(['README.md', 'README.ko.md'])('documents every supported control and theme in %s', (file) => {
     const readme = readFileSync(file, 'utf8');
     for (const name of supportedControlNames()) expect(readme).toContain('`' + name + '`');
-    expect(readme).toContain('0.4.0');
-    expect(readme).toContain('0.7.0');
+    expect(readme).toContain('0.5.0');
+    expect(readme).toContain('0.8.0');
     expect(readme).toContain('uxmlPreview.theme');
     expect(readme).toContain('runtime');
     expect(readme).toContain('editor');

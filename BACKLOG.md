@@ -61,3 +61,22 @@ UI 서버가 열려 있을 때의 문제인데 이 레포는 vitest run만 쓴�
 러너인지 구분할 수 없다.
 
 착수 시: happy-dom 통합 테스트 3건과 타입 테스트가 먼저 깨질 자리다.
+
+## 웹뷰 CSP가 Yoga의 wasm data: 요청을 막는다 (0.4.0에서도 동일)
+
+- 웹뷰 콘솔에 `Connecting to 'data:application/octet-stream;base64,…' violates the
+  following Content Security Policy directive: "default-src 'none'"`와
+  `Fetch API cannot load data:…`가 한 번 찍힌다. `connect-src`를 따로 두지 않아
+  `default-src`로 막힌 것이다(`src/preview/csp.ts`).
+- 0.5.0 빌드(코어 0.8.0)와 `v0.4.0` 태그(코어 0.7.1)를 같은 웹뷰 하니스에 올려
+  비교했다. 둘 다 같은 요청이 같은 방식으로 막혔다. 이번 릴리스에서 생긴
+  문제가 아니다(2026-11-19).
+- 렌더는 정상이다. 요청의 출처는 `yoga-layout` 3.2.1의
+  `yoga-wasm-base64-esm.js`(wasm을 data: URL로 내장한 로더)로 보이며, 막힌 뒤에도
+  레이아웃이 계산되므로 로더에 폴백이 있는 것으로 보인다. 폴백 경로는 읽어
+  확인하지 않았다.
+- 확인하지 않은 것: 실제 VS Code 웹뷰 콘솔에서도 같은 오류가 나는지(하니스는
+  일반 브라우저에 같은 HTML과 CSP를 올린 것이다).
+- 고치지 않은 이유: `connect-src data:`를 열면 CSP가 넓어진다. 오류 없이 도는
+  폴백에 기대는 상태를 어떻게 할지는 사람이 정한다. `wasm-unsafe-eval`은 건드리지
+  마라(`csp.ts` 머리말).

@@ -4,6 +4,9 @@
 
 ### Changed
 
+- New Marketplace icon (256 x 256) and gallery banner color, and an animated
+  overview in the README. The animation is served from the repository, not
+  packaged into the extension.
 - Upgrade to `uxml-preview@^0.8.0`, which reads Unity Text Core font assets.
 - Resolve `-unity-font-definition` from the Unity project. A Text Core font asset
   is read through `uxml-preview` 0.8.0: its source font and FaceInfo are loaded

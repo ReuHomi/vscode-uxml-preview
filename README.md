@@ -2,7 +2,9 @@
 
 # UXML Preview for Unity UI Toolkit
 
-Version **0.4.0** uses **uxml-preview ^0.7.0**.
+Version **0.5.0** uses **uxml-preview ^0.8.0**.
+
+![UXML Preview 0.5.0: open the preview to the side, edit and save, switch between Game screen and Editor screen, use a project font asset, and read the diagnostics panel.](docs/media/vscode-uxml-preview-0.5.0.gif)
 
 Preview composed Template/Instance UXML in VS Code without opening Unity, and
 catch `element-name` override typos that Unity silently ignores. Layout is calculated by
@@ -115,7 +117,7 @@ loaded; they are reported in the diagnostics panel and the browser font is used.
 `Packages`, and `ProjectSettings`. It is used for `project://` paths, `/Assets`
 paths, package paths, and GUID fallback after a written asset path has gone
 stale. Set it when the workspace folder containing the UXML file is not the
-Unity project root. When it is empty, the closest detected Unity project root is used, then the workspace folder.
+Unity project root. When it is empty, the outermost folder above the file that contains both `Assets` and `ProjectSettings` is used, then the workspace folder.
 
 | Setting | Default | Purpose |
 |---|---:|---|

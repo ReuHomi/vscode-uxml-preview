@@ -15,7 +15,7 @@
   },
   "homepage": "https://github.com/ReuHomi/vscode-uxml-preview#readme",
   "galleryBanner": {
-    "color": "#102F52",
+    "color": "#0E1014",
     "theme": "dark"
   },
   "engines": {
@@ -96,7 +96,7 @@
         "uxmlPreview.projectRoot": {
           "type": "string",
           "default": "",
-          "description": "Unity project root used to resolve project:// paths and GUID references. Empty means the workspace folder containing the file."
+          "description": "Unity project root used to resolve project:// paths and GUID references. Empty means the outermost folder above the file that contains both Assets and ProjectSettings, then the workspace folder."
         },
         "uxmlPreview.states": {
           "type": "object",

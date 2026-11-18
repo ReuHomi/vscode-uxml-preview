@@ -2,7 +2,9 @@
 
 # Unity UI Toolkit용 UXML Preview
 
-버전 **0.4.0**은 **uxml-preview ^0.7.0**을 사용한다.
+버전 **0.5.0**은 **uxml-preview ^0.8.0**을 사용한다.
+
+![UXML Preview 0.5.0: 옆에 미리보기 열기, 수정 후 저장, 게임 화면과 에디터 화면 전환, 프로젝트 글꼴 에셋 사용, 진단 패널 읽기.](docs/media/vscode-uxml-preview-0.5.0.gif)
 
 Unity를 열지 않고 VS Code에서 Template/Instance로 조립된 UXML을 미리 보고,
 Unity가 조용히 무시하는 `element-name` 오타를 짚는다. 레이아웃은 UI Toolkit이 사용하는 레이아웃 엔진 Yoga를 쓰는
@@ -103,8 +105,9 @@ UXML 문서나 해석에 성공한 임포트 스타일시트를 저장하면 미
 `uxmlPreview.projectRoot`는 `Assets`, `Packages`, `ProjectSettings`가 들어 있는
 Unity 프로젝트 디렉터리다. `project://` 경로, `/Assets` 경로, 패키지 경로,
 그리고 기록된 에셋 경로가 낡았을 때 GUID 폴백에 사용한다. UXML 파일이 속한
-워크스페이스 폴더가 Unity 프로젝트 루트가 아닐 때 설정한다. 비어 있으면 가장
-가까운 Unity 프로젝트 루트를 사용하고, 없으면 워크스페이스 폴더를 사용한다.
+워크스페이스 폴더가 Unity 프로젝트 루트가 아닐 때 설정한다. 비어 있으면 파일 위쪽
+폴더 중 `Assets`와 `ProjectSettings`가 모두 있는 가장 바깥 폴더를 사용하고, 없으면 워크스페이스
+폴더를 사용한다.
 
 | 설정 | 기본값 | 용도 |
 |---|---:|---|
