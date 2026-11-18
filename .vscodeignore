@@ -14,3 +14,4 @@ esbuild.mjs
 AGENTS.md
 CLAUDE.md
 **/*.map
+docs/media/**
